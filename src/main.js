@@ -35,7 +35,8 @@ require([
       longitude: -63.5510,
       latitude: 44.6425,
       timestamp: "2026-04-28 10:10",
-      note: "Possible movement point along the harbour"
+      note: "Possible movement point along the harbour",
+      anomalySegment: true
     },
     {
       name: "Vessel Point C",
@@ -43,7 +44,8 @@ require([
       longitude: -63.5350,
       latitude: 44.6315,
       timestamp: "2026-04-28 10:20",
-      note: "Sample point closer to the harbour entrance"
+      note: "Sample point closer to the harbour entrance",
+      anomalySegment: true
     }
   ];
 
@@ -71,7 +73,33 @@ require([
     }
   });
 
+  const anomalyPoints = samplePoints.filter((point) => point.anomalySegment);
+
+  const anomalySegmentGraphic = new Graphic({
+    geometry: {
+      type: "polyline",
+      paths: [
+        anomalyPoints.map((point) => [point.longitude, point.latitude])
+      ]
+    },
+    symbol: {
+      type: "simple-line",
+      color: [255, 0, 0],
+      width: 6
+    },
+    popupTemplate: {
+      title: "Mock Anomaly Segment",
+      content: `
+        <b>Segment:</b> Vessel Point B → Vessel Point C<br>
+        <b>Anomaly Type:</b> Mock unusual trajectory segment<br>
+        <b>Reason:</b> This segment is highlighted as a perception-aware visual cue for unusual vessel movement.<br>
+        <b>Interpretation:</b> The vessel appears to shift movement toward the harbour entrance, making this segment useful for testing anomaly highlighting.
+      `
+    }
+  });
+
   view.graphics.add(trajectoryLine);
+  view.graphics.add(anomalySegmentGraphic);
 
   function getMidpoint(startPoint, endPoint) {
     return {
