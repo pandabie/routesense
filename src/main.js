@@ -119,7 +119,8 @@ require([
         },
         haloColor: "black",
         haloSize: 1,
-        yoffset: 0
+        yoffset: 10
+
       }
     });
 
