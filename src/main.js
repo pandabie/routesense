@@ -73,6 +73,56 @@ require([
 
   view.graphics.add(trajectoryLine);
 
+  function getMidpoint(startPoint, endPoint) {
+    return {
+      longitude: (startPoint.longitude + endPoint.longitude) / 2,
+      latitude: (startPoint.latitude + endPoint.latitude) / 2
+    };
+  }
+
+  function getAngle(startPoint, endPoint) {
+    const deltaLongitude = endPoint.longitude - startPoint.longitude;
+    const deltaLatitude = endPoint.latitude - startPoint.latitude;
+
+    return -Math.atan2(deltaLatitude, deltaLongitude) * (180 / Math.PI);
+  }
+
+  for (let i = 0; i < samplePoints.length - 1; i++) {
+    const startPoint = samplePoints[i];
+    const endPoint = samplePoints[i + 1];
+    const midpoint = getMidpoint(startPoint, endPoint);
+
+    const directionArrow = new Graphic({
+      geometry: {
+        type: "point",
+        longitude: midpoint.longitude,
+        latitude: midpoint.latitude
+      },
+
+      symbol: {
+        type: "text",
+        color: "white",
+        text: "➜",
+        font: {
+          size: 18,
+          weight: "bold"
+        },
+        haloColor: "black",
+        haloSize: 1,
+        angle: getAngle(startPoint, endPoint)
+      },
+
+      popupTemplate: {
+        title: "Trajectory Direction",
+        content:
+          "From: " + startPoint.name +
+          "<br>To: " + endPoint.name
+      }
+    });
+
+    view.graphics.add(directionArrow);
+  }
+
   samplePoints.forEach(function (point) {
     const graphic = new Graphic({
       geometry: {
