@@ -20,26 +20,29 @@ require([
     description: "A simple sample route connecting AIS-like vessel points."
   };
 
-  const samplePoints = [
-    {
-      name: "Vessel Point A",
-      longitude: -63.5667,
-      latitude: 44.6460,
-      note: "Sample AIS-like point near Halifax Harbour"
-    },
-    {
-      name: "Vessel Point B",
-      longitude: -63.5510,
-      latitude: 44.6425,
-      note: "Possible movement point along the harbour"
-    },
-    {
-      name: "Vessel Point C",
-      longitude: -63.5350,
-      latitude: 44.6315,
-      note: "Sample point closer to the harbour entrance"
-    }
-  ];
+const samplePoints = [
+  {
+    name: "Vessel Point A",
+    longitude: -63.5667,
+    latitude: 44.6460,
+    timestamp: "2026-04-28 10:00",
+    note: "Sample AIS-like point near Halifax Harbour"
+  },
+  {
+    name: "Vessel Point B",
+    longitude: -63.5510,
+    latitude: 44.6425,
+    timestamp: "2026-04-28 10:10",
+    note: "Possible movement point along the harbour"
+  },
+  {
+    name: "Vessel Point C",
+    longitude: -63.5350,
+    latitude: 44.6315,
+    timestamp: "2026-04-28 10:20",
+    note: "Sample point closer to the harbour entrance"
+  }
+];
 
   const trajectoryLine = new Graphic({
     geometry: {
@@ -87,7 +90,9 @@ require([
 
       popupTemplate: {
         title: point.name,
-        content: point.note
+        content:
+          "Time: " + point.timestamp +
+          "<br>Note: " + point.note
       }
     });
 
