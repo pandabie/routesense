@@ -101,5 +101,29 @@ require([
     });
 
     view.graphics.add(graphic);
+
+    const orderLabel = new Graphic({
+      geometry: {
+        type: "point",
+        longitude: point.longitude,
+        latitude: point.latitude
+      },
+
+      symbol: {
+        type: "text",
+        color: "white",
+        text: point.order.toString(),
+        font: {
+          size: 10,
+          weight: "bold"
+        },
+        haloColor: "black",
+        haloSize: 1,
+        yoffset: 0
+      }
+    });
+
+    view.graphics.add(orderLabel);
+
   });
 });
