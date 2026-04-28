@@ -14,10 +14,42 @@ This project connects technical web mapping with research interests in HCI, visu
 - Perception-aware visual design
 - Human interpretation of movement patterns
 
-## Phase 0 Goals
+## Current Prototype
 
-- Set up development tools
-- Create GitHub repository
-- Define project folder structure
-- Write initial project statement
-- Prepare for Phase 1: basic JavaScript + map display
+The current version includes a basic ArcGIS web map centered on Halifax, Nova Scotia. It plots a few sample vessel-like points near Halifax Harbour and includes simple interactive popups.
+
+This prototype is the first working map foundation for future trajectory visualization features.
+
+## Phase 0: Project Setup
+
+Completed:
+
+- Set up VS Code
+- Installed Node.js
+- Set up Git
+- Created GitHub repository
+- Defined basic project folder structure
+- Wrote initial project statement
+
+## Phase 1: Map Starter
+
+Completed:
+
+- Created `public/index.html`
+- Created `src/style.css`
+- Created `src/main.js`
+- Added ArcGIS Maps SDK for JavaScript
+- Rendered a basic map centered on Halifax
+- Added sample vessel points
+- Added simple popups for each point
+- Committed and pushed the working prototype to GitHub
+
+## Next Steps
+
+Planned next development steps:
+
+- Add simple trajectory lines connecting vessel points
+- Move sample data into a separate JSON file
+- Add more realistic AIS-style attributes
+- Begin exploring visual cues for unusual movement patterns
+- Connect the technical prototype to perception-aware interface design questions
