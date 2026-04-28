@@ -14,6 +14,12 @@ require([
     zoom: 12
   });
 
+  const trajectoryMetadata = {
+    routeName: "Halifax Harbour Sample Trajectory",
+    vesselId: "SAMPLE-VESSEL-001",
+    description: "A simple sample route connecting AIS-like vessel points."
+  };
+
   const samplePoints = [
     {
       name: "Vessel Point A",
@@ -34,6 +40,32 @@ require([
       note: "Sample point closer to the harbour entrance"
     }
   ];
+
+  const trajectoryLine = new Graphic({
+    geometry: {
+      type: "polyline",
+      paths: [
+        samplePoints.map(function (point) {
+          return [point.longitude, point.latitude];
+        })
+      ]
+    },
+
+    symbol: {
+      type: "simple-line",
+      color: [0, 102, 255],
+      width: 4
+    },
+
+    popupTemplate: {
+      title: trajectoryMetadata.routeName,
+      content:
+        "Vessel ID: " + trajectoryMetadata.vesselId +
+        "<br>Description: " + trajectoryMetadata.description
+    }
+  });
+
+  view.graphics.add(trajectoryLine);
 
   samplePoints.forEach(function (point) {
     const graphic = new Graphic({
