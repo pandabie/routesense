@@ -22,8 +22,6 @@ This prototype is the first working map foundation for future trajectory visuali
 
 ## Phase 0: Project Setup
 
-Completed:
-
 - Set up VS Code
 - Installed Node.js
 - Set up Git
@@ -32,8 +30,6 @@ Completed:
 - Wrote initial project statement
 
 ## Phase 1: Map Starter
-
-Completed:
 
 - Created `public/index.html`
 - Created `src/style.css`
@@ -44,12 +40,25 @@ Completed:
 - Added simple popups for each point
 - Committed and pushed the working prototype to GitHub
 
-## Next Steps
+### Phase 2 Trajectory Starter
 
-Planned next development steps:
+The prototype now visualizes the sample vessel points as an ordered trajectory rather than isolated map markers. A blue polyline connects the vessel-like points near Halifax Harbour, while each point includes basic trajectory metadata such as order and timestamp.
 
-- Add simple trajectory lines connecting vessel points
-- Move sample data into a separate JSON file
-- Add more realistic AIS-style attributes
-- Begin exploring visual cues for unusual movement patterns
-- Connect the technical prototype to perception-aware interface design questions
+To improve visual interpretation, the map also displays numbered point labels and directional arrow cues along the trajectory. These cues help users perceive the movement sequence more quickly without relying only on popups.
+
+Current trajectory features include:
+
+- Three sample vessel-like points near Halifax Harbour
+- A connected blue trajectory line
+- Route-level metadata, including route name and vessel ID
+- Point-level metadata, including order and timestamp
+- Numbered labels directly on the map
+- Direction arrows showing movement flow from point 1 → 2 → 3
+- Popups for both vessel points and the trajectory line
+
+### Next Steps
+
+- Add more realistic AIS-like sample data
+- Introduce mock anomaly cases, such as sharp turns, speed changes, or unusual movement gaps
+- Explore visual highlighting methods for unusual trajectory patterns
+- Connect the technical prototype to perception-aware interface design and HCI research questions
