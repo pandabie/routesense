@@ -56,9 +56,35 @@ Current trajectory features include:
 - Direction arrows showing movement flow from point 1 → 2 → 3
 - Popups for both vessel points and the trajectory line
 
-### Next Steps
+## Phase 3: Mock Anomaly Starter
 
-- Add more realistic AIS-like sample data
-- Introduce mock anomaly cases, such as sharp turns, speed changes, or unusual movement gaps
-- Explore visual highlighting methods for unusual trajectory patterns
-- Connect the technical prototype to perception-aware interface design and HCI research questions
+Phase 3 introduces the first mock anomaly visualization for RouteSense.
+
+In this phase, the project adds anomaly metadata to selected trajectory points and uses that metadata to create a highlighted anomalous segment on the map. The anomaly segment is displayed with a red line so that it visually stands out from the normal blue trajectory line.
+
+This phase also adds an anomaly popup that explains:
+
+- Which segment is being highlighted
+- What kind of anomaly is being mocked
+- Why the segment is visually emphasized
+- How the highlighted segment supports perception-aware visualization testing
+
+Phase 3 keeps the earlier trajectory visualization elements working, including point markers, labels, arrows, timestamps, trajectory lines, and popups.
+
+## Phase 3.5: Expanded Trajectory Context
+
+Phase 3.5 expands the mock AIS-like sample trajectory from a simple 3-point route into an 8-point trajectory near Halifax Harbour.
+
+The goal of this phase is to make the anomaly easier to perceive by giving the viewer more movement context. Points 1–5 establish a mostly consistent movement rhythm, while Points 6–7 form a highlighted anomalous segment. This makes the red anomaly line feel more meaningful because it can now be compared against the normal trajectory pattern.
+
+This phase preserves the existing visualization elements from earlier phases:
+
+- Point markers
+- Numeric point labels
+- Direction arrows
+- Timestamps
+- Trajectory line
+- Anomaly highlight
+- Popups
+
+This update supports the perception-aware goal of RouteSense: anomaly detection is not only about marking unusual data, but also about designing enough visual context for the viewer to interpret why something appears unusual.

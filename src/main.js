@@ -15,37 +15,77 @@ require([
   });
 
   const trajectoryMetadata = {
-    routeName: "Halifax Harbour Sample Trajectory",
+    routeName: "Halifax Harbour Expanded Sample Trajectory",
     vesselId: "SAMPLE-VESSEL-001",
-    description: "A simple sample route connecting AIS-like vessel points."
+    description: "An expanded AIS-like sample route with multiple normal movement points and one highlighted anomalous segment for perception-aware visualization testing."
   };
 
   const samplePoints = [
     {
-      name: "Vessel Point A",
+      name: "Vessel Point 1",
       order: 1,
-      longitude: -63.5667,
-      latitude: 44.6460,
+      longitude: -63.5900,
+      latitude: 44.6650,
       timestamp: "2026-04-28 10:00",
-      note: "Sample AIS-like point near Halifax Harbour"
+      note: "Starting point near the inner harbour. The vessel begins moving in a steady southeast direction."
     },
     {
-      name: "Vessel Point B",
+      name: "Vessel Point 2",
       order: 2,
-      longitude: -63.5510,
-      latitude: 44.6425,
+      longitude: -63.5790,
+      latitude: 44.6590,
       timestamp: "2026-04-28 10:10",
-      note: "Possible movement point along the harbour",
+      note: "Normal movement point. The vessel continues along a smooth harbour trajectory."
+    },
+    {
+      name: "Vessel Point 3",
+      order: 3,
+      longitude: -63.5680,
+      latitude: 44.6530,
+      timestamp: "2026-04-28 10:20",
+      note: "Normal movement point. Direction and spacing remain consistent."
+    },
+    {
+      name: "Vessel Point 4",
+      order: 4,
+      longitude: -63.5570,
+      latitude: 44.6470,
+      timestamp: "2026-04-28 10:30",
+      note: "Normal movement point. This reinforces the expected movement rhythm before the anomaly."
+    },
+    {
+      name: "Vessel Point 5",
+      order: 5,
+      longitude: -63.5460,
+      latitude: 44.6410,
+      timestamp: "2026-04-28 10:40",
+      note: "Normal movement point. The vessel still follows the expected route pattern."
+    },
+    {
+      name: "Vessel Point 6",
+      order: 6,
+      longitude: -63.553461,
+      latitude: 44.618908,
+      timestamp: "2026-04-28 10:50",
+      note: "Anomalous movement point. The vessel suddenly detours away from the established route.",
       anomalySegment: true
     },
     {
-      name: "Vessel Point C",
-      order: 3,
+      name: "Vessel Point 7",
+      order: 7,
       longitude: -63.5350,
-      latitude: 44.6315,
-      timestamp: "2026-04-28 10:20",
-      note: "Sample point closer to the harbour entrance",
+      latitude: 44.6320,
+      timestamp: "2026-04-28 11:00",
+      note: "Anomalous return movement. The vessel sharply shifts back toward the harbour path.",
       anomalySegment: true
+    },
+    {
+      name: "Vessel Point 8",
+      order: 8,
+      longitude: -63.5250,
+      latitude: 44.6260,
+      timestamp: "2026-04-28 11:10",
+      note: "Normal movement resumes after the unusual detour."
     }
   ];
 
@@ -90,10 +130,10 @@ require([
     popupTemplate: {
       title: "Mock Anomaly Segment",
       content: `
-        <b>Segment:</b> Vessel Point B → Vessel Point C<br>
-        <b>Anomaly Type:</b> Mock unusual trajectory segment<br>
-        <b>Reason:</b> This segment is highlighted as a perception-aware visual cue for unusual vessel movement.<br>
-        <b>Interpretation:</b> The vessel appears to shift movement toward the harbour entrance, making this segment useful for testing anomaly highlighting.
+        <b>Segment:</b> Vessel Point 6 → Vessel Point 7<br>
+        <b>Anomaly Type:</b> Sharp return after unusual detour<br>
+        <b>Reason:</b> The vessel first moves away from the established harbour trajectory, then sharply returns toward the expected route.<br>
+        <b>Interpretation:</b> Because Points 1–5 create a visible normal movement rhythm, the 6–7 segment becomes easier to perceive as unusual.
       `
     }
   });
