@@ -1,3 +1,6 @@
+// RouteSense prototype
+// This file builds a perception-aware maritime trajectory visualization
+// using ArcGIS Maps SDK for JavaScript.
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
 import Graphic from "@arcgis/core/Graphic";
@@ -5,6 +8,7 @@ import Graphic from "@arcgis/core/Graphic";
 import "@arcgis/core/assets/esri/themes/light/main.css";
 import "./style.css";
 
+// Map setup: creates the base map and initial view around the study area.
 const map = new Map({
   basemap: "streets-navigation-vector"
 });
@@ -23,6 +27,9 @@ const trajectoryMetadata = {
     "An expanded AIS-like sample route with multiple normal movement points and one highlighted anomalous segment for perception-aware visualization testing."
 };
 
+// Sample vessel trajectory points.
+// These mock AIS-like points are used to prototype the visual design
+// before connecting the application to real maritime data.
 const samplePoints = [
   {
     name: "Vessel Point 1",
@@ -92,6 +99,7 @@ const samplePoints = [
   }
 ];
 
+// Main trajectory line: connects vessel positions to show movement over time.
 const trajectoryLine = new Graphic({
   geometry: {
     type: "polyline",
@@ -114,8 +122,11 @@ const trajectoryLine = new Graphic({
   }
 });
 
+
 const anomalyPoints = samplePoints.filter((point) => point.anomalySegment);
 
+// Perception-aware anomaly cue.
+// The cue is designed to attract attention without relying only on color.
 const anomalyGlowGraphic = new Graphic({
   geometry: {
     type: "polyline",
@@ -130,7 +141,9 @@ const anomalyGlowGraphic = new Graphic({
   }
 });
 
-
+// Mock anomaly segment.
+// This segment is manually selected to test how unusual movement can be
+// visually emphasized before rule-based anomaly detection is implemented.
 const anomalySegmentGraphic = new Graphic({
   geometry: {
     type: "polyline",
@@ -207,6 +220,7 @@ for (let i = 0; i < samplePoints.length - 1; i++) {
   view.graphics.add(directionArrow);
 }
 
+// Vessel point markers: shows each timestamped vessel position.
 samplePoints.forEach((point) => {
   const graphic = new Graphic({
     geometry: {
@@ -263,6 +277,9 @@ samplePoints.forEach((point) => {
   view.graphics.add(orderLabel);
 });
 
+// Anomaly explanation panel.
+// Provides context so the user can interpret why the highlighted movement
+// may be unusual.
 const infoPanel = document.createElement("div");
 
 infoPanel.className = "info-panel";
