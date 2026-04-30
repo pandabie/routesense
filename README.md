@@ -2,6 +2,7 @@
 
 **RouteSense** is a perception-aware maritime trajectory visualization project built with JavaScript, ArcGIS/web mapping tools, and AIS trajectory data.
 
+## Project Goal
 The goal is to explore how visual interface design can help users interpret vessel movement patterns more clearly, especially when identifying unusual routes, speed changes, sharp turns, or other movement anomalies.
 
 This project connects technical web mapping with research interests in HCI, visual perception, interpretation, and representation. It is being developed as a portfolio project for a thesis-based MSc Computer Science application.
@@ -13,6 +14,29 @@ This project connects technical web mapping with research interests in HCI, visu
 - AIS or maritime trajectory datasets
 - Perception-aware visual design
 - Human interpretation of movement patterns
+
+## Current Prototype Features
+
+- ArcGIS-based interactive map
+- Mock AIS-like vessel trajectory points
+- Connected trajectory line showing vessel movement over time
+- Highlighted anomalous trajectory segment
+- Perception-aware anomaly cue
+- Anomaly explanation panel
+- Timestamped vessel points and movement context
+
+## Current Status
+
+This prototype currently uses mock trajectory data and a manually selected anomaly segment. The current focus is visual prototyping and interface design rather than automated anomaly detection.
+
+Rule-based anomaly detection will be developed in a later phase.
+
+## Technology Stack
+
+- JavaScript
+- Vite
+- ArcGIS Maps SDK for JavaScript
+- HTML/CSS
 
 ## Current Prototype
 
@@ -31,6 +55,7 @@ This prototype is the first working map foundation for future trajectory visuali
 | Phase 3 | Mock anomaly segment highlight | Complete |
 | Phase 3.5 | Expanded trajectory context for anomaly visualization | Complete |
 | Phase 4 | Perception-aware anomaly styling and explanation panel | Complete |
+| Phase 4.5 | Prototype stabilization and portfolio notes | In progress |
 
 ## Phase 0: Project Setup
 
@@ -115,3 +140,17 @@ Instead of relying only on color, the anomalous segment now uses multiple visual
 The key design idea is that the anomaly is not defined by color alone. It becomes meaningful when compared with the surrounding trajectory context. Points 1–5 establish a normal movement rhythm, while the Point 6 → Point 7 segment becomes easier to perceive as an unusual deviation.
 
 This keeps the prototype simple while connecting the technical implementation to the project’s broader research direction: perception-aware interface design for maritime trajectory visualization.
+
+
+### Next Step
+
+The next technical phase will focus on either trajectory interaction or rule-based anomaly logic.
+
+## Screenshots
+
+Screenshots will be added after the prototype is stabilized.
+
+
+## Portfolio Note
+
+RouteSense is part of a graduate portfolio exploring the intersection of human-computer interaction, visualization, perception, and maritime data interpretation.
