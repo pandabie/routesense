@@ -20,6 +20,8 @@ const view = new MapView({
   zoom: 12
 });
 
+view.popupEnabled = false;
+
 const trajectoryMetadata = {
   routeName: "Halifax Harbour Expanded Sample Trajectory",
   vesselId: "SAMPLE-VESSEL-001",
@@ -98,6 +100,7 @@ const samplePoints = [
     note: "Normal movement resumes after the unusual detour."
   }
 ];
+
 
 // Main trajectory line: connects vessel positions to show movement over time.
 const trajectoryLine = new Graphic({
@@ -220,9 +223,13 @@ for (let i = 0; i < samplePoints.length - 1; i++) {
   view.graphics.add(directionArrow);
 }
 
+let selectedPointOrder = null;
+
 // Vessel point markers: shows each timestamped vessel position.
-samplePoints.forEach((point) => {
-  const graphic = new Graphic({
+const createPointGraphic = (point) => {
+  const isSelected = point.order === selectedPointOrder;
+
+  return new Graphic({
     geometry: {
       type: "point",
       longitude: point.longitude,
@@ -231,12 +238,18 @@ samplePoints.forEach((point) => {
 
     symbol: {
       type: "simple-marker",
-      color: "orange",
-      size: "12px",
+      style: "circle",
+      color: isSelected ? [255, 220, 80, 0.95] : "orange",
+      size: isSelected ? "18px" : "12px",
       outline: {
-        color: "white",
-        width: 1
+        color: isSelected ? [255, 255, 255, 1] : "white",
+        width: isSelected ? 3 : 1
       }
+    },
+
+    attributes: {
+      ...point,
+      graphicType: "vessel-point"
     },
 
     popupTemplate: {
@@ -250,7 +263,13 @@ samplePoints.forEach((point) => {
         point.note
     }
   });
+};
 
+const vesselPointGraphics = [];
+
+samplePoints.forEach((point) => {
+  const graphic = createPointGraphic(point);
+  vesselPointGraphics.push(graphic);
   view.graphics.add(graphic);
 
   const orderLabel = new Graphic({
@@ -276,6 +295,22 @@ samplePoints.forEach((point) => {
 
   view.graphics.add(orderLabel);
 });
+  
+const refreshPointGraphics = () => {
+  vesselPointGraphics.forEach((graphic) => {
+    view.graphics.remove(graphic);
+  });
+
+  vesselPointGraphics.length = 0;
+
+  samplePoints.forEach((point) => {
+    const graphic = createPointGraphic(point);
+    vesselPointGraphics.push(graphic);
+    view.graphics.add(graphic);
+  });
+};
+
+
 
 // Anomaly explanation panel.
 // Provides context so the user can interpret why the highlighted movement
@@ -284,16 +319,73 @@ const infoPanel = document.createElement("div");
 
 infoPanel.className = "info-panel";
 
-infoPanel.innerHTML = `
-  <h3>Perception-Aware Anomaly Cue</h3>
-  <p>
-    The highlighted segment marks an unusual movement that becomes noticeable
-    when compared with the surrounding trajectory context.
-  </p>
-  <ul>
-    <li><span class="legend-line normal-line"></span> Normal movement context</li>
-    <li><span class="legend-line anomaly-line"></span> Anomalous deviation</li>
-  </ul>
-`;
+const showDefaultInfoPanel = () => {
+  infoPanel.innerHTML = `
+    <h3>Perception-Aware Anomaly Cue</h3>
+    <p>
+      The highlighted segment marks an unusual movement that becomes noticeable
+      when compared with the surrounding trajectory context.
+    </p>
+    <p>
+      Click a vessel point to inspect its local trajectory context and compare
+      it with the manually highlighted anomaly segment.
+    </p>
+    <ul>
+      <li><span class="legend-line normal-line"></span> Normal movement context</li>
+      <li><span class="legend-line anomaly-line"></span> Anomalous deviation</li>
+    </ul>
+  `;
+};
+
+showDefaultInfoPanel();
+
+const updateInfoPanel = (point) => {
+  const anomalyText = point.anomalySegment
+    ? `<p class="panel-warning">
+        This point belongs to the manually highlighted anomaly segment.
+      </p>`
+    : "";
+
+  infoPanel.innerHTML = `
+    <h3>${point.name}</h3>
+    <p><strong>Time:</strong> ${point.timestamp}</p>
+    <p><strong>Trajectory order:</strong> ${point.order}</p>
+    <p>${point.note}</p>
+    ${anomalyText}
+    <hr />
+    <p>
+      <strong>Prototype note:</strong>
+      This interaction helps users inspect the trajectory point-by-point before
+      automated anomaly detection is added.
+    </p>
+    <ul>
+      <li><span class="legend-line normal-line"></span> Normal movement context</li>
+      <li><span class="legend-line anomaly-line"></span> Anomalous deviation</li>
+    </ul>
+  `;
+};
+
 
 view.ui.add(infoPanel, "top-right");
+
+view.on("click", (event) => {
+  view.hitTest(event).then((response) => {
+    const clickedPointResult = response.results.find((result) => {
+      return result.graphic?.attributes?.graphicType === "vessel-point";
+    });
+
+    if (!clickedPointResult) {
+      selectedPointOrder = null;
+      showDefaultInfoPanel();
+      refreshPointGraphics();
+      return;
+    }
+
+    const selectedPoint = clickedPointResult.graphic.attributes;
+
+    selectedPointOrder = selectedPoint.order;
+
+    updateInfoPanel(selectedPoint);
+    refreshPointGraphics();
+  });
+});

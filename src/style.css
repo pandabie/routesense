@@ -63,3 +63,10 @@ body,
   border-top-color: rgba(255, 80, 60, 0.95);
   border-top-style: dashed;
 }
+
+.panel-warning {
+  padding: 8px 10px;
+  border-left: 4px solid #ff503c;
+  background: rgba(255, 80, 60, 0.12);
+  font-weight: 600;
+}
