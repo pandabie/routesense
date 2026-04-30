@@ -148,7 +148,17 @@ The next technical phase will focus on either trajectory interaction or rule-bas
 
 ## Screenshots
 
-Screenshots will be added after the prototype is stabilized.
+### Overall Map View
+
+![RouteSense overall map view](screenshots/routesense-overall-map.png)
+
+### Anomaly Highlight View
+
+![RouteSense anomaly highlight view](screenshots/routesense-anomaly-highlight.png)
+
+### Explanation Panel View
+
+![RouteSense explanation panel view](screenshots/routesense-explanation-panel.png)
 
 
 ## Portfolio Note
