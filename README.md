@@ -142,9 +142,11 @@ The key design idea is that the anomaly is not defined by color alone. It become
 This keeps the prototype simple while connecting the technical implementation to the project’s broader research direction: perception-aware interface design for maritime trajectory visualization.
 
 
-### Next Step
+## Next Step
 
-The next technical phase will focus on either trajectory interaction or rule-based anomaly logic.
+The next phase will focus on trajectory interaction. Before implementing rule-based anomaly detection, the prototype will improve how users inspect trajectory points, compare normal and unusual movement segments, and interpret highlighted route behavior through the interface.
+
+Rule-based anomaly logic will be developed after the interaction layer is stable.
 
 ## Screenshots
 
