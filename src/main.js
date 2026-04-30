@@ -262,6 +262,7 @@ const createPointGraphic = (point) => {
         "<br>Note: " +
         point.note
     }
+
   });
 };
 

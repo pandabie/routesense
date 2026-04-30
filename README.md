@@ -56,6 +56,7 @@ This prototype is the first working map foundation for future trajectory visuali
 | Phase 3.5 | Expanded trajectory context for anomaly visualization | Complete |
 | Phase 4 | Perception-aware anomaly styling and explanation panel | Complete |
 | Phase 4.5 | Prototype stabilization and portfolio notes | Complete |
+| Phase 5 | Trajectory point interaction and selected-point details panel | Complete |
 
 ## Phase 0: Project Setup
 
@@ -141,6 +142,23 @@ The key design idea is that the anomaly is not defined by color alone. It become
 
 This keeps the prototype simple while connecting the technical implementation to the project’s broader research direction: perception-aware interface design for maritime trajectory visualization.
 
+## Phase 4.5: Prototype Stabilization & Portfolio Notes
+
+Phase 4.5 focuses on stabilizing the prototype before adding new technical features. Instead of expanding the application, this phase improves the project’s readability, documentation, and portfolio presentation.
+
+The codebase was lightly reviewed and annotated with explanatory comments so that the main prototype structure is easier to follow. The comments clarify important sections such as the map setup, mock AIS-like trajectory data, anomaly segment, perception-aware cue, and explanation panel.
+
+The README was also polished to explain the project goal, current prototype features, technology stack, current status, screenshots, and portfolio relevance. This phase makes clear that the current anomaly is still manually selected for visual prototyping, while rule-based anomaly detection will be developed in a later phase.
+
+Prototype screenshots were added to document the current visual state of the application, including the overall map view, anomaly highlight, and explanation panel.
+
+The main purpose of this phase is to make RouteSense easier to understand as a portfolio project. It connects the working prototype to the broader research direction of human-computer interaction, visual perception, interpretation, and maritime trajectory visualization.
+
+## Phase 5: Trajectory Interaction
+
+Phase 5 adds a basic interaction layer for inspecting the mock AIS-like trajectory. Users can click individual vessel points to update the details panel with local timestamp, order, and movement notes. The selected point is visually highlighted, and clicking empty map space clears the selection and restores the default anomaly explanation.
+
+This phase focuses on user inspection and interpretation of the existing trajectory context. It does not add automated anomaly detection yet; the anomaly segment remains manually defined for prototype and visualization purposes.
 
 ## Next Step
 
