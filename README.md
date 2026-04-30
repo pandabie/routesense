@@ -20,6 +20,18 @@ The current version includes a basic ArcGIS web map centered on Halifax, Nova Sc
 
 This prototype is the first working map foundation for future trajectory visualization features.
 
+## Project Progress
+
+| Phase | Focus | Status |
+|---|---|---|
+| Phase 0 | Project setup, tools, and GitHub repository | Complete |
+| Phase 1 | Basic ArcGIS map prototype | Complete |
+| Phase 1.5 | Map styling and interface cleanup | Complete |
+| Phase 2 | Sample maritime trajectory visualization | Complete |
+| Phase 3 | Mock anomaly segment highlight | Complete |
+| Phase 3.5 | Expanded trajectory context for anomaly visualization | Complete |
+| Phase 4 | Perception-aware anomaly styling and explanation panel | Complete |
+
 ## Phase 0: Project Setup
 
 - Set up VS Code
@@ -88,3 +100,18 @@ This phase preserves the existing visualization elements from earlier phases:
 - Popups
 
 This update supports the perception-aware goal of RouteSense: anomaly detection is not only about marking unusual data, but also about designing enough visual context for the viewer to interpret why something appears unusual.
+
+## Phase 4: Perception-Aware Anomaly Design
+
+Phase 4 improves the anomaly visualization from a simple red highlighted segment into a more perception-aware design.
+
+Instead of relying only on color, the anomalous segment now uses multiple visual cues:
+
+- A dashed line style to distinguish the unusual movement pattern from the normal trajectory
+- A thicker red-orange line to increase visual salience
+- A subtle glow behind the segment to improve contrast against the basemap
+- A small explanation panel to help users interpret the anomaly in context
+
+The key design idea is that the anomaly is not defined by color alone. It becomes meaningful when compared with the surrounding trajectory context. Points 1–5 establish a normal movement rhythm, while the Point 6 → Point 7 segment becomes easier to perceive as an unusual deviation.
+
+This keeps the prototype simple while connecting the technical implementation to the project’s broader research direction: perception-aware interface design for maritime trajectory visualization.
