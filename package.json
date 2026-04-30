@@ -26,5 +26,8 @@
   "homepage": "https://github.com/pandabie/routesense#readme",
   "devDependencies": {
     "vite": "^8.0.10"
+  },
+  "dependencies": {
+    "@arcgis/core": "^5.0.19"
   }
 }
