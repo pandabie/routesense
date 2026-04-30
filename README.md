@@ -163,4 +163,8 @@ The next technical phase will focus on either trajectory interaction or rule-bas
 
 ## Portfolio Note
 
-RouteSense is part of a graduate portfolio exploring the intersection of human-computer interaction, visualization, perception, and maritime data interpretation.
+RouteSense is a prototype web mapping application that visualizes maritime vessel trajectories and explores how perception-aware interface design can support anomaly interpretation.
+
+The current prototype uses mock AIS-like trajectory data around Halifax Harbour. It highlights a manually selected unusual movement segment and adds visual cues and an explanation panel to help users interpret why that segment may stand out from the surrounding movement pattern.
+
+This project connects modern JavaScript web mapping with broader research interests in human-computer interaction, visual perception, interpretation, and representation. It is intended as a portfolio project for thesis-based graduate study in computer science.
