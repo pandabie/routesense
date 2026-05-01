@@ -115,6 +115,10 @@ const trajectoryLine = new Graphic({
     width: 4
   },
 
+  attributes: {
+    graphicType: "trajectory-line"
+  },
+
   popupTemplate: {
     title: trajectoryMetadata.routeName,
     content:
@@ -158,6 +162,10 @@ const anomalySegmentGraphic = new Graphic({
     color: [255, 80, 60, 0.95],
     width: 7,
     style: "dash"
+  },
+
+  attributes: {
+    graphicType: "anomaly-segment"
   },
 
   popupTemplate: {
@@ -212,6 +220,12 @@ for (let i = 0; i < samplePoints.length - 1; i++) {
       haloColor: "black",
       haloSize: 1,
       angle: getAngle(startPoint, endPoint)
+    },
+
+    attributes: {
+      graphicType: "direction-arrow",
+      fromPoint: startPoint.name,
+      toPoint: endPoint.name
     },
 
     popupTemplate: {
@@ -340,6 +354,8 @@ const showDefaultInfoPanel = () => {
 
 showDefaultInfoPanel();
 
+view.ui.add(infoPanel, "top-right");
+
 const updateInfoPanel = (point) => {
   const anomalyText = point.anomalySegment
     ? `<p class="panel-warning">
@@ -367,26 +383,106 @@ const updateInfoPanel = (point) => {
 };
 
 
-view.ui.add(infoPanel, "top-right");
-
 view.on("click", (event) => {
   view.hitTest(event).then((response) => {
-    const clickedPointResult = response.results.find((result) => {
-      return result.graphic?.attributes?.graphicType === "vessel-point";
+    const clickedGraphicResult = response.results.find((result) => {
+      return result.graphic?.attributes?.graphicType;
     });
 
-    if (!clickedPointResult) {
+    if (!clickedGraphicResult) {
       selectedPointOrder = null;
       showDefaultInfoPanel();
       refreshPointGraphics();
       return;
     }
 
-    const selectedPoint = clickedPointResult.graphic.attributes;
+    const clickedAttributes = clickedGraphicResult.graphic.attributes;
+    const graphicType = clickedAttributes.graphicType;
 
-    selectedPointOrder = selectedPoint.order;
+    if (graphicType !== "vessel-point") {
+      selectedPointOrder = null;
+      refreshPointGraphics();
+    }
 
-    updateInfoPanel(selectedPoint);
-    refreshPointGraphics();
+    if (graphicType === "vessel-point") {
+      selectedPointOrder = clickedAttributes.order;
+      updateInfoPanel(clickedAttributes);
+      refreshPointGraphics();
+      return;
+    }
+
+    if (graphicType === "trajectory-line") {
+      showTrajectoryPanel();
+      return;
+    }
+
+    if (graphicType === "anomaly-segment") {
+      showAnomalySegmentPanel();
+      return;
+    }
+
+    if (graphicType === "direction-arrow") {
+      showDirectionPanel(clickedAttributes);
+      return;
+    }
   });
 });
+
+const showTrajectoryPanel = () => {
+  infoPanel.innerHTML = `
+    <h3>Trajectory Overview</h3>
+    <p><strong>Route:</strong> ${trajectoryMetadata.routeName}</p>
+    <p><strong>Vessel ID:</strong> ${trajectoryMetadata.vesselId}</p>
+    <p>${trajectoryMetadata.description}</p>
+    <hr />
+    <p>
+      This line represents the full mock AIS-like trajectory used as context
+      for interpreting the highlighted anomaly segment.
+    </p>
+    <p>
+      Points 1–5 establish the expected movement rhythm, while the highlighted
+      segment shows a manually selected deviation for visualization purposes.
+    </p>
+  `;
+};
+
+const showAnomalySegmentPanel = () => {
+  infoPanel.innerHTML = `
+    <h3>Mock Anomaly Segment</h3>
+    <p><strong>Segment:</strong> Vessel Point 6 → Vessel Point 7</p>
+    <p><strong>Anomaly Type:</strong> Sharp return after unusual detour</p>
+    <p>
+      <strong>Reason:</strong>
+      The vessel first moves away from the established harbour trajectory,
+      then sharply returns toward the expected route.
+    </p>
+    <p>
+      <strong>Interpretation:</strong>
+      Because Points 1–5 create a visible normal movement rhythm, the 6–7
+      segment becomes easier to perceive as unusual.
+    </p>
+    <hr />
+    <p>
+      <strong>Prototype note:</strong>
+      This anomaly is manually selected for visualization purposes. Automated
+      rule-based anomaly detection has not been added yet.
+    </p>
+  `;
+};
+
+const showDirectionPanel = (graphicAttributes) => {
+  infoPanel.innerHTML = `
+    <h3>Trajectory Direction</h3>
+    <p><strong>From:</strong> ${graphicAttributes.fromPoint}</p>
+    <p><strong>To:</strong> ${graphicAttributes.toPoint}</p>
+    <hr />
+    <p>
+      This arrow indicates the vessel's movement direction between two
+      consecutive sampled positions.
+    </p>
+    <p>
+      Direction cues help users read the trajectory as an ordered movement
+      pattern rather than a disconnected set of points.
+    </p>
+  `;
+};
