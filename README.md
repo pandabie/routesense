@@ -27,7 +27,9 @@ This project connects technical web mapping with research interests in HCI, visu
 
 ## Current Status
 
-This prototype currently uses mock trajectory data and a manually selected anomaly segment. The current focus is visual prototyping and interface design rather than automated anomaly detection.
+The prototype currently supports an interactive mock AIS-like trajectory in Halifax Harbour. Users can inspect vessel points, trajectory context, direction arrows, and the manually highlighted anomaly segment through a unified details panel.
+
+The anomaly segment is still manually selected. Automated rule-based anomaly detection has not been added yet.
 
 Rule-based anomaly detection will be developed in a later phase.
 
@@ -44,6 +46,8 @@ The current version includes a basic ArcGIS web map centered on Halifax, Nova Sc
 
 This prototype is the first working map foundation for future trajectory visualization features.
 
+The current prototype uses a panel-first interaction model. Instead of relying on floating popups, map elements update a persistent details panel so users can compare vessel points, route context, direction cues, and the highlighted anomaly in one consistent interpretation space.
+
 ## Project Progress
 
 | Phase | Focus | Status |
@@ -57,6 +61,7 @@ This prototype is the first working map foundation for future trajectory visuali
 | Phase 4 | Perception-aware anomaly styling and explanation panel | Complete |
 | Phase 4.5 | Prototype stabilization and portfolio notes | Complete |
 | Phase 5 | Trajectory point interaction and selected-point details panel | Complete |
+| Phase 5.5 | Unified interaction panel for trajectory line, anomaly segment, direction arrows, and vessel points | Complete |
 
 ## Phase 0: Project Setup
 
@@ -160,6 +165,25 @@ Phase 5 adds a basic interaction layer for inspecting the mock AIS-like trajecto
 
 This phase focuses on user inspection and interpretation of the existing trajectory context. It does not add automated anomaly detection yet; the anomaly segment remains manually defined for prototype and visualization purposes.
 
+## Phase 5.5: Unified Interaction Panel
+
+Phase 5.5 refines the interaction design by moving map-element explanations into a single persistent details panel.
+
+Earlier versions used a mix of interaction patterns: vessel points updated the panel, while trajectory lines, anomaly segments, and direction arrows relied on ArcGIS popups. This phase makes the interface more consistent by using the panel as the central interpretation space.
+
+Users can now click different map elements and inspect their meaning in the same panel:
+
+- Vessel points show local timestamp, order, and movement notes
+- Anomaly points include an additional warning that they belong to the highlighted anomaly segment
+- The trajectory line shows the overall route context
+- The anomaly segment explains why the selected deviation is visually meaningful
+- Direction arrows explain movement direction between consecutive sampled positions
+- Clicking empty map space clears the selection and restores the default explanation
+
+This phase keeps popups disabled for now so that interpretive feedback remains centralized and does not visually compete with the map.
+
+The goal is not to add automated detection yet. Instead, Phase 5.5 strengthens the user inspection workflow before rule-based anomaly logic is introduced.
+
 ## Next Step
 
 The next phase will focus on trajectory interaction. Before implementing rule-based anomaly detection, the prototype will improve how users inspect trajectory points, compare normal and unusual movement segments, and interpret highlighted route behavior through the interface.
@@ -188,3 +212,5 @@ RouteSense is a prototype web mapping application that visualizes maritime vesse
 The current prototype uses mock AIS-like trajectory data around Halifax Harbour. It highlights a manually selected unusual movement segment and adds visual cues and an explanation panel to help users interpret why that segment may stand out from the surrounding movement pattern.
 
 This project connects modern JavaScript web mapping with broader research interests in human-computer interaction, visual perception, interpretation, and representation. It is intended as a portfolio project for thesis-based graduate study in computer science.
+
+
