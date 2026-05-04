@@ -101,6 +101,14 @@ const samplePoints = [
   }
 ];
 
+const anomalySegment = {
+  fromOrder: 6,
+  toOrder: 7,
+  label: "Point 6 → Point 7",
+  reason:
+    "This segment is manually selected as the prototype anomaly because it breaks the surrounding movement rhythm.",
+};
+
 
 // Main trajectory line: connects vessel positions to show movement over time.
 const trajectoryLine = new Graphic({
@@ -128,7 +136,6 @@ const trajectoryLine = new Graphic({
       trajectoryMetadata.description
   }
 });
-
 
 const anomalyPoints = samplePoints.filter((point) => point.anomalySegment);
 
@@ -179,6 +186,62 @@ const anomalySegmentGraphic = new Graphic({
   }
 });
 
+const segmentEvidence = samplePoints.slice(0, -1).map((point, index) => {
+  const nextPoint = samplePoints[index + 1];
+
+  const heading = getAngle(point, nextPoint);
+  const estimatedSpeed = getEstimatedSpeed(point, nextPoint);
+  const distanceKm = getDistanceKm(point, nextPoint);
+  const timeDiffHours = getTimeDiffHours(point, nextPoint);
+
+  return {
+    id: `${point.order}-${nextPoint.order}`,
+    fromOrder: point.order,
+    toOrder: nextPoint.order,
+    fromName: point.name,
+    toName: nextPoint.name,
+    heading,
+    estimatedSpeed,
+    distanceKm,
+    timeDiffHours,
+    isManuallySelectedAnomaly:
+      point.order === anomalySegment.fromOrder &&
+      nextPoint.order === anomalySegment.toOrder,
+  };
+});
+
+segmentEvidence.forEach((segment, index) => {
+  if (index === 0) {
+    segment.headingChange = null;
+    return;
+  }
+
+  segment.headingChange = getHeadingChange(
+    segmentEvidence[index - 1],
+    segment
+  );
+});
+
+const anomalyRule = {
+  name: "Prototype trajectory evidence rule",
+  status: "Evidence only",
+  description:
+    "This prototype rule summarizes computed trajectory evidence for the manually selected anomaly segment. It does not perform automated anomaly detection yet.",
+  evidenceFields: ["estimated speed", "heading change"],
+};
+
+const selectedAnomalyEvidence = segmentEvidence.find(
+  (segment) => segment.isManuallySelectedAnomaly
+);
+
+function formatNumber(value, decimals = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+
+  return value.toFixed(decimals);
+}
+
 view.graphics.add(trajectoryLine);
 view.graphics.add(anomalyGlowGraphic);
 view.graphics.add(anomalySegmentGraphic);
@@ -196,6 +259,56 @@ function getAngle(startPoint, endPoint) {
 
   return -Math.atan2(deltaLatitude, deltaLongitude) * (180 / Math.PI);
 }
+
+function parseTimestamp(timestamp) {
+  return new Date(timestamp.replace(" ", "T"));
+}
+
+function getDistanceKm(start, end) {
+  const earthRadiusKm = 6371;
+
+  const startLatRad = (start.latitude * Math.PI) / 180;
+  const endLatRad = (end.latitude * Math.PI) / 180;
+  const deltaLatRad = ((end.latitude - start.latitude) * Math.PI) / 180;
+  const deltaLonRad = ((end.longitude - start.longitude) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
+    Math.cos(startLatRad) *
+      Math.cos(endLatRad) *
+      Math.sin(deltaLonRad / 2) *
+      Math.sin(deltaLonRad / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
+}
+
+function getTimeDiffHours(start, end) {
+  const startTime = parseTimestamp(start.timestamp);
+  const endTime = parseTimestamp(end.timestamp);
+
+  const diffMs = endTime - startTime;
+  return diffMs / (1000 * 60 * 60);
+}
+
+function getEstimatedSpeed(start, end) {
+  const distanceKm = getDistanceKm(start, end);
+  const timeHours = getTimeDiffHours(start, end);
+
+  if (timeHours <= 0) {
+    return null;
+  }
+
+  return distanceKm / timeHours;
+}
+
+function getHeadingChange(previousSegment, currentSegment) {
+  const change = Math.abs(currentSegment.heading - previousSegment.heading);
+
+  return change > 180 ? 360 - change : change;
+}
+
 
 for (let i = 0; i < samplePoints.length - 1; i++) {
   const startPoint = samplePoints[i];
@@ -362,7 +475,9 @@ const updateInfoPanel = (point) => {
         This point belongs to the manually highlighted anomaly segment.
       </p>`
     : "";
-
+  const isAffectedByPrototypeRule =
+    point.order === anomalySegment.fromOrder ||
+    point.order === anomalySegment.toOrder;
   infoPanel.innerHTML = `
     <h3>${point.name}</h3>
     <p><strong>Time:</strong> ${point.timestamp}</p>
@@ -379,6 +494,19 @@ const updateInfoPanel = (point) => {
       <li><span class="legend-line normal-line"></span> Normal movement context</li>
       <li><span class="legend-line anomaly-line"></span> Anomalous deviation</li>
     </ul>
+    ${
+      isAffectedByPrototypeRule
+        ? `
+          <div class="panel-section">
+            <h3>Prototype rule note</h3>
+            <p>
+              This point is connected to the manually selected anomaly segment and
+              is affected by the current prototype rule evidence.
+            </p>
+          </div>
+        `
+        : ""
+    }
   `;
 };
 
@@ -447,6 +575,14 @@ const showTrajectoryPanel = () => {
 };
 
 const showAnomalySegmentPanel = () => {
+  const speedText = selectedAnomalyEvidence
+  ? `${formatNumber(selectedAnomalyEvidence.estimatedSpeed)} km/h`
+  : "N/A";
+
+  const headingChangeText =
+  selectedAnomalyEvidence && selectedAnomalyEvidence.headingChange !== null
+    ? `${formatNumber(selectedAnomalyEvidence.headingChange)}°`
+    : "N/A";
   infoPanel.innerHTML = `
     <h3>Mock Anomaly Segment</h3>
     <p><strong>Segment:</strong> Vessel Point 6 → Vessel Point 7</p>
@@ -467,6 +603,18 @@ const showAnomalySegmentPanel = () => {
       This anomaly is manually selected for visualization purposes. Automated
       rule-based anomaly detection has not been added yet.
     </p>
+    <div class="panel-section">
+      <h3>Prototype rule evidence</h3>
+      <p>
+        This segment is still manually selected as the anomaly. The values below
+        provide early computed evidence, not automated anomaly detection.
+      </p>
+      <ul>
+        <li><strong>Estimated speed:</strong> ${speedText}</li>
+        <li><strong>Heading change:</strong> ${headingChangeText}</li>
+        <li><strong>Rule status:</strong> ${anomalyRule.status}</li>
+      </ul>
+    </div>
   `;
 };
 
