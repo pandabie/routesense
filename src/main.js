@@ -472,7 +472,7 @@ view.ui.add(infoPanel, "top-right");
 const updateInfoPanel = (point) => {
   const anomalyText = point.anomalySegment
     ? `<p class="panel-warning">
-        This point belongs to the manually highlighted anomaly segment.
+        This point is one endpoint of the manually selected anomaly segment.
       </p>`
     : "";
   const isAffectedByPrototypeRule =
@@ -500,8 +500,7 @@ const updateInfoPanel = (point) => {
           <div class="panel-section">
             <h3>Prototype rule note</h3>
             <p>
-              This point is connected to the manually selected anomaly segment and
-              is affected by the current prototype rule evidence.
+              This point is affected by the current prototype rule evidence because it forms part of the selected 6→7 segment.
             </p>
           </div>
         `
