@@ -62,6 +62,7 @@ The current prototype uses a panel-first interaction model. Instead of relying o
 | Phase 4.5 | Prototype stabilization and portfolio notes | Complete |
 | Phase 5 | Trajectory point interaction and selected-point details panel | Complete |
 | Phase 5.5 | Unified interaction panel for trajectory line, anomaly segment, direction arrows, and vessel points | Complete |
+| Phase 6 | Rule-Based Anomaly Evidence Starter | Complete |
 
 ## Phase 0: Project Setup
 
@@ -183,6 +184,23 @@ Users can now click different map elements and inspect their meaning in the same
 This phase keeps popups disabled for now so that interpretive feedback remains centralized and does not visually compete with the map.
 
 The goal is not to add automated detection yet. Instead, Phase 5.5 strengthens the user inspection workflow before rule-based anomaly logic is introduced.
+
+## Phase 6 — Rule-Based Anomaly Evidence Starter
+
+Phase 6 introduces early computed trajectory evidence for the manually selected anomaly segment.
+
+Instead of claiming full automated anomaly detection, this phase calculates simple evidence values that help explain why the selected segment may appear unusual in context.
+
+The prototype now computes:
+
+- Estimated segment speed using distance and timestamp differences
+- Heading change between consecutive trajectory segments
+- Segment-level evidence for each point-to-point movement
+- A prototype rule note for the manually selected anomaly segment
+
+The details panel remains the central interpretation space. When users select the anomaly segment, the panel shows computed evidence such as estimated speed and heading change. When users select Point 6 or Point 7, the panel indicates that these points are affected by the current prototype rule evidence.
+
+This phase is intentionally evidence-focused. Automated anomaly detection has not been added yet.
 
 ## Next Step
 
