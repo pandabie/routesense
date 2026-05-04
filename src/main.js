@@ -176,7 +176,7 @@ const anomalySegmentGraphic = new Graphic({
   },
 
   popupTemplate: {
-    title: "Mock Anomaly Segment",
+    title: "Rule-Based Anomaly Evidence",
     content: `
       <b>Segment:</b> Vessel Point 6 → Vessel Point 7<br>
       <b>Anomaly Type:</b> Sharp return after unusual detour<br>
@@ -583,7 +583,7 @@ const showAnomalySegmentPanel = () => {
     ? `${formatNumber(selectedAnomalyEvidence.headingChange)}°`
     : "N/A";
   infoPanel.innerHTML = `
-    <h3>Mock Anomaly Segment</h3>
+    <h3>Rule-Based Anomaly Evidence</h3>
     <p><strong>Segment:</strong> Vessel Point 6 → Vessel Point 7</p>
     <p><strong>Anomaly Type:</strong> Sharp return after unusual detour</p>
     <p>
@@ -597,23 +597,13 @@ const showAnomalySegmentPanel = () => {
       segment becomes easier to perceive as unusual.
     </p>
     <hr />
-    <p>
-      <strong>Prototype note:</strong>
-      This anomaly is manually selected for visualization purposes. Automated
-      rule-based anomaly detection has not been added yet.
-    </p>
-    <div class="panel-section">
-      <h3>Prototype rule evidence</h3>
-      <p>
-        This segment is still manually selected as the anomaly. The values below
-        provide early computed evidence, not automated anomaly detection.
-      </p>
-      <ul>
-        <li><strong>Estimated speed:</strong> ${speedText}</li>
-        <li><strong>Heading change:</strong> ${headingChangeText}</li>
-        <li><strong>Rule status:</strong> ${anomalyRule.status}</li>
-      </ul>
-    </div>
+    <ul>
+      <li><strong>Estimated speed:</strong> ${speedText}</li>
+      <li><strong>Heading change:</strong> ${headingChangeText}</li>
+      <li><strong>Rule status:</strong> Evidence only</li>
+      <li><strong>Selection status:</strong> Manually selected segment</li>
+      <li><strong>Detection:</strong> Automated anomaly detection has not been added yet</li>
+    </ul>
   `;
 };
 
