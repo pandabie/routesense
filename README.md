@@ -2,6 +2,10 @@
 
 **RouteSense** is a perception-aware maritime trajectory visualization project built with JavaScript, ArcGIS/web mapping tools, and AIS trajectory data.
 
+## Abstract
+
+RouteSense is a web-based maritime trajectory visualization prototype built with JavaScript and ArcGIS Maps SDK. The project explores how perception-aware interface design can help users interpret unusual movement patterns in vessel trajectory data. The current prototype demonstrates an 8-point Halifax Harbour trajectory, a manually selected anomaly segment, panel-first interaction, and computed trajectory evidence such as estimated speed and heading change. Future phases will compare normal and anomalous movement evidence more explicitly and later introduce threshold-based anomaly detection.
+
 ## Project Goal
 The goal is to explore how visual interface design can help users interpret vessel movement patterns more clearly, especially when identifying unusual routes, speed changes, sharp turns, or other movement anomalies.
 
@@ -202,6 +206,29 @@ The details panel remains the central interpretation space. When users select th
 
 This phase is intentionally evidence-focused. Automated anomaly detection has not been added yet.
 
+## Planned Evaluation
+
+A future evaluation will test whether perception-aware visual cues help users identify unusual trajectory segments more effectively than a baseline design.
+
+Planned task:
+Participants will inspect maritime trajectory visualizations and identify the segment that appears unusual.
+
+Planned conditions:
+- Baseline condition: anomaly shown using a simple color highlight only
+- Perception-aware condition: anomaly shown using multiple cues such as color, line thickness, dashed styling, glow, contextual explanation, and computed evidence in the panel
+
+Planned metrics:
+- Time-to-detection
+- Accuracy of anomaly identification
+- Confidence rating
+- Cognitive load, potentially using NASA-TLX
+
+Planned sample:
+A small exploratory study with approximately 10 participants.
+
+Status:
+This evaluation has not been conducted yet. It is documented as a future research direction for validating the interface design.
+
 ## Next Step
 
 The next phase will focus on trajectory interaction. Before implementing rule-based anomaly detection, the prototype will improve how users inspect trajectory points, compare normal and unusual movement segments, and interpret highlighted route behavior through the interface.
@@ -232,3 +259,13 @@ The current prototype uses mock AIS-like trajectory data around Halifax Harbour.
 This project connects modern JavaScript web mapping with broader research interests in human-computer interaction, visual perception, interpretation, and representation. It is intended as a portfolio project for thesis-based graduate study in computer science.
 
 
+## Design Decisions
+### Visualization Design Framework
+
+This prototype is also informed by established visualization design frameworks. Munzner’s Nested Model provides a way to separate the problem domain, data abstraction, visual encoding, interaction design, and algorithmic choices. This is useful for RouteSense because the project intentionally develops the interface and interpretation layer before adding full automated anomaly detection.
+
+Bertin’s work on graphical perception and visual variables also informs the project’s use of multiple visual cues. Instead of relying only on color, the anomalous segment uses line thickness, dashed styling, contrast, and contextual placement within the surrounding trajectory.
+
+## References
+- Munzner, T. (2009). A nested model for visualization design and validation. *IEEE Transactions on Visualization and Computer Graphics*, 15(6), 921–928.
+- Bertin, J. (1983). *Semiology of Graphics*. University of Wisconsin Press.
