@@ -234,12 +234,73 @@ const selectedAnomalyEvidence = segmentEvidence.find(
   (segment) => segment.isManuallySelectedAnomaly
 );
 
+const normalBaselineSegments = segmentEvidence.filter(
+  (segment) => segment.fromOrder >= 1 && segment.toOrder <= 5
+);
+
+const normalBaseline = {
+  description: "Average of normal movement segments from Point 1 to Point 5",
+  averageSpeed: getAverage(
+    normalBaselineSegments.map((segment) => segment.estimatedSpeed)
+  ),
+  averageHeadingChange: getAverage(
+    normalBaselineSegments.map((segment) => segment.headingChange)
+  ),
+};
+
+const anomalyDeviation = selectedAnomalyEvidence
+  ? {
+      speedPercent: getPercentDifference(
+        selectedAnomalyEvidence.estimatedSpeed,
+        normalBaseline.averageSpeed
+      ),
+      headingChangeDifference:
+        selectedAnomalyEvidence.headingChange !== null &&
+        normalBaseline.averageHeadingChange !== null
+          ? selectedAnomalyEvidence.headingChange -
+            normalBaseline.averageHeadingChange
+          : null,
+    }
+  : {
+      speedPercent: null,
+      headingChangeDifference: null,
+    };
+
 function formatNumber(value, decimals = 2) {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "N/A";
   }
 
   return value.toFixed(decimals);
+}
+
+function getAverage(values) {
+  const validValues = values.filter(
+    (value) => value !== null && value !== undefined && !Number.isNaN(value)
+  );
+
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  const total = validValues.reduce((sum, value) => sum + value, 0);
+  return total / validValues.length;
+}
+
+function getPercentDifference(value, baseline) {
+  if (
+    value === null ||
+    value === undefined ||
+    Number.isNaN(value) ||
+    baseline === null ||
+    baseline === undefined ||
+    Number.isNaN(baseline) ||
+    baseline === 0
+  ) {
+    return null;
+  }
+
+  return ((value - baseline) / baseline) * 100;
 }
 
 view.graphics.add(trajectoryLine);
@@ -582,6 +643,28 @@ const showAnomalySegmentPanel = () => {
   selectedAnomalyEvidence && selectedAnomalyEvidence.headingChange !== null
     ? `${formatNumber(selectedAnomalyEvidence.headingChange)}°`
     : "N/A";
+
+    const baselineSpeedText = `${formatNumber(
+  normalBaseline.averageSpeed)} km/h`;
+
+  const baselineHeadingChangeText = `${formatNumber(
+    normalBaseline.averageHeadingChange
+  )}°`;
+
+  const speedDeviationText =
+    anomalyDeviation.speedPercent !== null
+      ? `${anomalyDeviation.speedPercent >= 0 ? "+" : ""}${formatNumber(
+          anomalyDeviation.speedPercent
+        )}%`
+      : "N/A";
+
+  const headingDeviationText =
+    anomalyDeviation.headingChangeDifference !== null
+      ? `${anomalyDeviation.headingChangeDifference >= 0 ? "+" : ""}${formatNumber(
+          anomalyDeviation.headingChangeDifference
+        )}°`
+      : "N/A";
+
   infoPanel.innerHTML = `
     <h3>Rule-Based Anomaly Evidence</h3>
     <p><strong>Segment:</strong> Vessel Point 6 → Vessel Point 7</p>
@@ -598,11 +681,34 @@ const showAnomalySegmentPanel = () => {
     </p>
     <hr />
     <ul>
-      <li><strong>Estimated speed:</strong> ${speedText}</li>
-      <li><strong>Heading change:</strong> ${headingChangeText}</li>
-      <li><strong>Rule status:</strong> Evidence only</li>
-      <li><strong>Selection status:</strong> Manually selected segment</li>
-      <li><strong>Detection:</strong> Automated anomaly detection has not been added yet</li>
+        <div class="panel-section">
+          <h3>Normal movement baseline</h3>
+          <p>
+            Baseline is calculated from the earlier normal trajectory rhythm
+            across Points 1–5.
+          </p>
+          <p><strong>Average speed:</strong> ${baselineSpeedText}</p>
+          <p><strong>Average heading change:</strong> ${baselineHeadingChangeText}</p>
+        </div>
+
+        <div class="panel-section">
+          <h3>Selected anomaly segment</h3>
+          <p><strong>Estimated speed:</strong> ${speedText}</p>
+          <p><strong>Heading change:</strong> ${headingChangeText}</p>
+        </div>
+
+        <div class="panel-section">
+          <h3>Deviation from baseline</h3>
+          <p><strong>Speed deviation:</strong> ${speedDeviationText}</p>
+          <p><strong>Heading deviation:</strong> ${headingDeviationText}</p>
+        </div>
+
+        <div class="panel-section">
+          <h3>Rule status</h3>
+          <p><strong>Rule:</strong> ${anomalyRule.status}</p>
+          <p><strong>Selection:</strong> Manually selected segment</p>
+          <p><strong>Detection:</strong> Automated anomaly detection has not been added yet.</p>
+        </div>
     </ul>
   `;
 };
