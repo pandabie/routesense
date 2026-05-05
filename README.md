@@ -4,7 +4,7 @@
 
 ## Abstract
 
-RouteSense is a web-based maritime trajectory visualization prototype built with JavaScript and ArcGIS Maps SDK. The project explores how perception-aware interface design can help users interpret unusual movement patterns in vessel trajectory data. The current prototype demonstrates an 8-point Halifax Harbour trajectory, a manually selected anomaly segment, panel-first interaction, and computed trajectory evidence such as estimated speed and heading change. Future phases will compare normal and anomalous movement evidence more explicitly and later introduce threshold-based anomaly detection.
+RouteSense is a web-based maritime trajectory visualization prototype built with JavaScript and ArcGIS Maps SDK. The project explores how perception-aware interface design can help users interpret unusual movement patterns in vessel trajectory data. The current prototype demonstrates an 8-point Halifax Harbour trajectory, a manually selected anomaly segment, panel-first interaction, computed trajectory evidence, and a comparison between normal movement baseline and anomalous segment behavior. Future phases will introduce threshold-based anomaly detection and evaluate whether perception-aware cues improve users’ ability to identify unusual trajectory segments.
 
 ## Project Goal
 The goal is to explore how visual interface design can help users interpret vessel movement patterns more clearly, especially when identifying unusual routes, speed changes, sharp turns, or other movement anomalies.
@@ -66,7 +66,7 @@ The current prototype uses a panel-first interaction model. Instead of relying o
 | Phase 4.5 | Prototype stabilization and portfolio notes | Complete |
 | Phase 5 | Trajectory point interaction and selected-point details panel | Complete |
 | Phase 5.5 | Unified interaction panel for trajectory line, anomaly segment, direction arrows, and vessel points | Complete |
-| Phase 6 | Rule-Based Anomaly Evidence Starter | Complete |
+| Phase 6 | Rule-Based Anomaly Evidence | Complete |
 
 ## Phase 0: Project Setup
 
@@ -88,7 +88,7 @@ The current prototype uses a panel-first interaction model. Instead of relying o
 - Added simple popups for each point
 - Committed and pushed the working prototype to GitHub
 
-### Phase 2 Trajectory Starter
+## Phase 2 Trajectory Starter
 
 The prototype now visualizes the sample vessel points as an ordered trajectory rather than isolated map markers. A blue polyline connects the vessel-like points near Halifax Harbour, while each point includes basic trajectory metadata such as order and timestamp.
 
@@ -189,22 +189,53 @@ This phase keeps popups disabled for now so that interpretive feedback remains c
 
 The goal is not to add automated detection yet. Instead, Phase 5.5 strengthens the user inspection workflow before rule-based anomaly logic is introduced.
 
-## Phase 6 — Rule-Based Anomaly Evidence Starter
+## Phase 6 — Rule-Based Anomaly Evidence
 
-Phase 6 introduces early computed trajectory evidence for the manually selected anomaly segment.
+Phase 6 introduces computed trajectory evidence to support interpretation of the manually selected anomaly segment.
 
-Instead of claiming full automated anomaly detection, this phase calculates simple evidence values that help explain why the selected segment may appear unusual in context.
+This phase does not claim full automated anomaly detection. Instead, it adds early rule-based evidence that helps explain why the selected segment appears unusual relative to the surrounding movement context.
+
+### Phase 6A — Rule-Based Anomaly Evidence Starter
+
+Phase 6A adds computed trajectory evidence for each consecutive point-to-point segment.
 
 The prototype now computes:
 
-- Estimated segment speed using distance and timestamp differences
+- Segment distance using the Haversine formula
+- Time difference between trajectory points
+- Estimated segment speed
+- Heading direction
 - Heading change between consecutive trajectory segments
-- Segment-level evidence for each point-to-point movement
-- A prototype rule note for the manually selected anomaly segment
+- Segment-level evidence stored in `segmentEvidence`
+- Rule metadata stored in `anomalyRule`
 
-The details panel remains the central interpretation space. When users select the anomaly segment, the panel shows computed evidence such as estimated speed and heading change. When users select Point 6 or Point 7, the panel indicates that these points are affected by the current prototype rule evidence.
+When the manually selected anomaly segment is clicked, the details panel now displays computed evidence such as estimated speed and heading change.
 
-This phase is intentionally evidence-focused. Automated anomaly detection has not been added yet.
+The panel also clearly states that:
+
+- The segment is manually selected
+- The current rule status is evidence-only
+- Automated anomaly detection has not been added yet
+
+This keeps the prototype academically honest while preparing the system for future threshold-based anomaly detection.
+
+### Phase 6B — Normal vs. Anomaly Evidence Comparison
+
+Phase 6B extends the anomaly evidence panel by comparing the manually selected anomaly segment against a normal movement baseline.
+
+The baseline is calculated from the earlier normal trajectory rhythm across Points 1–5. This allows the anomaly segment to be interpreted relative to prior movement context rather than as an isolated visual highlight.
+
+The panel now shows:
+
+- Average speed for the normal baseline
+- Average heading change for the normal baseline
+- Estimated speed and heading change for the selected anomaly segment
+- Speed deviation from the baseline
+- Heading deviation from the baseline
+
+This comparison strengthens the perception-aware design argument because the anomaly becomes meaningful through contrast with surrounding trajectory behavior.
+
+The project still does not perform full automated anomaly detection at this stage. The current goal is to make the evidence visible, interpretable, and grounded in the trajectory context.
 
 ## Planned Evaluation
 
