@@ -67,6 +67,7 @@ The current prototype uses a panel-first interaction model. Instead of relying o
 | Phase 5 | Trajectory point interaction and selected-point details panel | Complete |
 | Phase 5.5 | Unified interaction panel for trajectory line, anomaly segment, direction arrows, and vessel points | Complete |
 | Phase 6 | Rule-Based Anomaly Evidence | Complete |
+| Phase 7 | Threshold-Based Anomaly Detection Starter | Complete |
 
 ## Phase 0: Project Setup
 
@@ -236,6 +237,32 @@ The panel now shows:
 This comparison strengthens the perception-aware design argument because the anomaly becomes meaningful through contrast with surrounding trajectory behavior.
 
 The project still does not perform full automated anomaly detection at this stage. The current goal is to make the evidence visible, interpretable, and grounded in the trajectory context.
+
+## Phase 7: Threshold-Based Anomaly Detection Starter
+
+Phase 7 introduces a simple threshold-based prototype rule for segment-level anomaly evidence.
+
+Until Phase 6, the highlighted anomaly segment was manually selected and explained using computed movement evidence. In Phase 7, the prototype begins to evaluate each trajectory segment using a simple rule based on speed and heading change.
+
+The threshold-based prototype rule flags a segment when either:
+
+- its estimated speed is greater than 1.5× the normal baseline average speed, or
+- its heading change is greater than 45 degrees
+
+The primary RouteSense anomaly segment remains Vessel Point 6 → Vessel Point 7. This segment is retained as the main narrative anomaly because it represents the unusual movement pattern designed for the perception-aware prototype.
+
+The threshold rule provides supporting evidence rather than replacing the primary anomaly highlight. For example, another segment may be rule-flagged because of speed, but it does not automatically become the main highlighted anomaly.
+
+This phase keeps the distinction between:
+
+- the primary RouteSense anomaly segment
+- rule-flagged segments from the threshold-based prototype rule
+- normal baseline movement used for comparison
+- computed evidence shown in the interaction panel
+
+The panel-first interaction model remains unchanged. Popups are still disabled, and interpretation continues through the side panel.
+
+This is a simple detection starter. It is not production-ready anomaly detection and has not been trained or validated on real AIS data yet.
 
 ## Planned Evaluation
 
