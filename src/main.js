@@ -101,6 +101,7 @@ const samplePoints = [
   }
 ];
 
+
 const anomalySegment = {
   fromOrder: 6,
   toOrder: 7,
@@ -109,118 +110,60 @@ const anomalySegment = {
     "This segment is manually selected as the prototype anomaly because it breaks the surrounding movement rhythm.",
 };
 
-
-// Main trajectory line: connects vessel positions to show movement over time.
-const trajectoryLine = new Graphic({
-  geometry: {
-    type: "polyline",
-    paths: [samplePoints.map((point) => [point.longitude, point.latitude])]
-  },
-
-  symbol: {
-    type: "simple-line",
-    color: [0, 102, 255],
-    width: 4
-  },
-
-  attributes: {
-    graphicType: "trajectory-line"
-  },
-
-  popupTemplate: {
-    title: trajectoryMetadata.routeName,
-    content:
-      "Vessel ID: " +
-      trajectoryMetadata.vesselId +
-      "<br>Description: " +
-      trajectoryMetadata.description
-  }
-});
-
-const anomalyPoints = samplePoints.filter((point) => point.anomalySegment);
-
-// Perception-aware anomaly cue.
-// The cue is designed to attract attention without relying only on color.
-const anomalyGlowGraphic = new Graphic({
-  geometry: {
-    type: "polyline",
-    paths: [anomalyPoints.map((point) => [point.longitude, point.latitude])]
-  },
-
-  symbol: {
-    type: "simple-line",
-    color: [255, 120, 80, 0.25],
-    width: 13,
-    style: "solid"
-  }
-});
-
-// Mock anomaly segment.
-// This segment is manually selected to test how unusual movement can be
-// visually emphasized before rule-based anomaly detection is implemented.
-const anomalySegmentGraphic = new Graphic({
-  geometry: {
-    type: "polyline",
-    paths: [anomalyPoints.map((point) => [point.longitude, point.latitude])]
-  },
-
-  symbol: {
-    type: "simple-line",
-    color: [255, 80, 60, 0.95],
-    width: 7,
-    style: "dash"
-  },
-
-  attributes: {
-    graphicType: "anomaly-segment"
-  },
-
-  popupTemplate: {
-    title: "Rule-Based Anomaly Evidence",
-    content: `
-      <b>Segment:</b> Vessel Point 6 → Vessel Point 7<br>
-      <b>Anomaly Type:</b> Sharp return after unusual detour<br>
-      <b>Reason:</b> The vessel first moves away from the established harbour trajectory, then sharply returns toward the expected route.<br>
-      <b>Interpretation:</b> Because Points 1–5 create a visible normal movement rhythm, the 6–7 segment becomes easier to perceive as unusual.
-    `
-  }
-});
+const primaryAnomalySegment = {
+  fromOrder: 6,
+  toOrder: 7,
+};
 
 const segmentEvidence = samplePoints.slice(0, -1).map((point, index) => {
   const nextPoint = samplePoints[index + 1];
 
-  const heading = getAngle(point, nextPoint);
-  const estimatedSpeed = getEstimatedSpeed(point, nextPoint);
   const distanceKm = getDistanceKm(point, nextPoint);
   const timeDiffHours = getTimeDiffHours(point, nextPoint);
+  const estimatedSpeed = getEstimatedSpeed(point, nextPoint);
+  const heading = getHeading(point, nextPoint);
 
   return {
-    id: `${point.order}-${nextPoint.order}`,
+    startPoint: point,
+    endPoint: nextPoint,
     fromOrder: point.order,
     toOrder: nextPoint.order,
-    fromName: point.name,
-    toName: nextPoint.name,
     heading,
     estimatedSpeed,
     distanceKm,
     timeDiffHours,
     isManuallySelectedAnomaly:
-      point.order === anomalySegment.fromOrder &&
-      nextPoint.order === anomalySegment.toOrder,
+      point.order === primaryAnomalySegment.fromOrder &&
+      nextPoint.order === primaryAnomalySegment.toOrder,
   };
 });
 
-segmentEvidence.forEach((segment, index) => {
-  if (index === 0) {
-    segment.headingChange = null;
-    return;
-  }
+const segmentEvidenceWithHeadingChange = segmentEvidence.map((segment, index) => {
+  const previousSegment = segmentEvidence[index - 1];
 
-  segment.headingChange = getHeadingChange(
-    segmentEvidence[index - 1],
-    segment
-  );
+  return {
+    ...segment,
+    headingChange: previousSegment
+      ? getHeadingChange(previousSegment.heading, segment.heading)
+      : null,
+  };
 });
+
+function getHeading(startPoint, endPoint) {
+  const startLat = startPoint.latitude * (Math.PI / 180);
+  const endLat = endPoint.latitude * (Math.PI / 180);
+  const deltaLon = (endPoint.longitude - startPoint.longitude) * (Math.PI / 180);
+
+  const y = Math.sin(deltaLon) * Math.cos(endLat);
+  const x =
+    Math.cos(startLat) * Math.sin(endLat) -
+    Math.sin(startLat) * Math.cos(endLat) * Math.cos(deltaLon);
+
+  const bearing = Math.atan2(y, x) * (180 / Math.PI);
+
+  return (bearing + 360) % 360;
+}
+
 
 const anomalyRule = {
   name: "Prototype trajectory evidence rule",
@@ -230,11 +173,7 @@ const anomalyRule = {
   evidenceFields: ["estimated speed", "heading change"],
 };
 
-const selectedAnomalyEvidence = segmentEvidence.find(
-  (segment) => segment.isManuallySelectedAnomaly
-);
-
-const normalBaselineSegments = segmentEvidence.filter(
+const normalBaselineSegments = segmentEvidenceWithHeadingChange.filter(
   (segment) => segment.fromOrder >= 1 && segment.toOrder <= 5
 );
 
@@ -244,9 +183,50 @@ const normalBaseline = {
     normalBaselineSegments.map((segment) => segment.estimatedSpeed)
   ),
   averageHeadingChange: getAverage(
-    normalBaselineSegments.map((segment) => segment.headingChange)
+    normalBaselineSegments
+      .map((segment) => segment.headingChange)
+      .filter((headingChange) => headingChange !== null)
   ),
 };
+
+const thresholdRule = {
+  speedMultiplier: 1.5,
+  headingChangeDegrees: 45,
+};
+
+function getThresholdDetection(segment, baseline, rule) {
+  const speedThreshold = baseline.averageSpeed * rule.speedMultiplier;
+
+  const isSpeedFlagged = segment.estimatedSpeed > speedThreshold;
+  const isHeadingFlagged = segment.headingChange > rule.headingChangeDegrees;
+
+  return {
+    isRuleFlagged: isSpeedFlagged || isHeadingFlagged,
+    isSpeedFlagged,
+    isHeadingFlagged,
+    speedThreshold,
+    headingThreshold: rule.headingChangeDegrees,
+  };
+}
+
+const ruleEvaluatedSegmentEvidence = segmentEvidenceWithHeadingChange.map(
+  (segment) => {
+    const thresholdDetection = getThresholdDetection(
+      segment,
+      normalBaseline,
+      thresholdRule
+    );
+
+    return {
+      ...segment,
+      thresholdDetection,
+    };
+  }
+);
+
+const selectedAnomalyEvidence = ruleEvaluatedSegmentEvidence.find(
+  (segment) => segment.isManuallySelectedAnomaly
+);
 
 const anomalyDeviation = selectedAnomalyEvidence
   ? {
@@ -303,9 +283,127 @@ function getPercentDifference(value, baseline) {
   return ((value - baseline) / baseline) * 100;
 }
 
+// Main trajectory line: connects vessel positions to show movement over time.
+const trajectoryLine = new Graphic({
+  geometry: {
+    type: "polyline",
+    paths: [samplePoints.map((point) => [point.longitude, point.latitude])]
+  },
+
+  symbol: {
+    type: "simple-line",
+    color: [0, 102, 255],
+    width: 4
+  },
+
+  attributes: {
+    graphicType: "trajectory-line"
+  },
+
+  popupTemplate: {
+    title: trajectoryMetadata.routeName,
+    content:
+      "Vessel ID: " +
+      trajectoryMetadata.vesselId +
+      "<br>Description: " +
+      trajectoryMetadata.description
+  }
+});
+
+const ruleFlaggedSegmentIndex = ruleEvaluatedSegmentEvidence.findIndex(
+  (segment) => segment.isManuallySelectedAnomaly
+);
+
+const ruleFlaggedSegment =
+  ruleFlaggedSegmentIndex !== -1
+    ? ruleEvaluatedSegmentEvidence[ruleFlaggedSegmentIndex]
+    : null;
+
+let anomalyGlowGraphic = null;
+let anomalySegmentGraphic = null;
+
+if (ruleFlaggedSegment) {
+  const flaggedStartPoint = samplePoints[ruleFlaggedSegmentIndex];
+  const flaggedEndPoint = samplePoints[ruleFlaggedSegmentIndex + 1];
+
+  const flaggedSegmentPath = [
+    [flaggedStartPoint.longitude, flaggedStartPoint.latitude],
+    [flaggedEndPoint.longitude, flaggedEndPoint.latitude]
+  ];
+
+  // Perception-aware anomaly cue.
+  // The cue is designed to attract attention without relying only on color.
+  anomalyGlowGraphic = new Graphic({
+    geometry: {
+      type: "polyline",
+      paths: [flaggedSegmentPath]
+    },
+
+    symbol: {
+      type: "simple-line",
+      color: [255, 120, 80, 0.25],
+      width: 13,
+      style: "solid"
+    }
+  });
+
+  // Threshold-based prototype rule flagged segment.
+  anomalySegmentGraphic = new Graphic({
+    geometry: {
+      type: "polyline",
+      paths: [flaggedSegmentPath]
+    },
+
+    symbol: {
+      type: "simple-line",
+      color: [255, 80, 60, 0.95],
+      width: 7,
+      style: "dash"
+    },
+
+    attributes: {
+      graphicType: "anomaly-segment",
+      startOrder: flaggedStartPoint.order,
+      endOrder: flaggedEndPoint.order,
+      estimatedSpeed: ruleFlaggedSegment.estimatedSpeed,
+      headingChange: ruleFlaggedSegment.headingChange,
+      isRuleFlagged: ruleFlaggedSegment.thresholdDetection.isRuleFlagged,
+      isSpeedFlagged: ruleFlaggedSegment.thresholdDetection.isSpeedFlagged,
+      isHeadingFlagged: ruleFlaggedSegment.thresholdDetection.isHeadingFlagged,
+      speedThreshold: ruleFlaggedSegment.thresholdDetection.speedThreshold,
+      headingThreshold: ruleFlaggedSegment.thresholdDetection.headingThreshold
+    },
+
+    popupTemplate: {
+      title: "Threshold-Based Anomaly Detection Starter",
+      content: `
+        <b>Segment:</b> Vessel Point ${flaggedStartPoint.order} → Vessel Point ${flaggedEndPoint.order}<br>
+        <b>Detection method:</b> Threshold-based prototype rule<br>
+        <b>Estimated speed:</b> ${ruleFlaggedSegment.estimatedSpeed.toFixed(2)} km/h<br>
+        <b>Heading change:</b> ${ruleFlaggedSegment.headingChange?.toFixed(2) ?? "N/A"}°<br>
+        <b>Speed threshold:</b> ${ruleFlaggedSegment.thresholdDetection.speedThreshold.toFixed(2)} km/h<br>
+        <b>Heading threshold:</b> ${ruleFlaggedSegment.thresholdDetection.headingThreshold}°<br>
+        <b>Speed rule:</b> ${
+          ruleFlaggedSegment.thresholdDetection.isSpeedFlagged ? "Triggered" : "Not triggered"
+        }<br>
+        <b>Heading rule:</b> ${
+          ruleFlaggedSegment.thresholdDetection.isHeadingFlagged ? "Triggered" : "Not triggered"
+        }<br>
+        <b>Note:</b> This is a simple threshold-based detection starter. It is not production-ready anomaly detection and has not been trained or validated on real AIS data.
+      `
+    }
+  });
+}
+
 view.graphics.add(trajectoryLine);
-view.graphics.add(anomalyGlowGraphic);
-view.graphics.add(anomalySegmentGraphic);
+
+if (anomalyGlowGraphic) {
+  view.graphics.add(anomalyGlowGraphic);
+}
+
+if (anomalySegmentGraphic) {
+  view.graphics.add(anomalySegmentGraphic);
+}
 
 function getMidpoint(startPoint, endPoint) {
   return {
@@ -364,8 +462,8 @@ function getEstimatedSpeed(start, end) {
   return distanceKm / timeHours;
 }
 
-function getHeadingChange(previousSegment, currentSegment) {
-  const change = Math.abs(currentSegment.heading - previousSegment.heading);
+function getHeadingChange(previousHeading, currentHeading) {
+  const change = Math.abs(currentHeading - previousHeading);
 
   return change > 180 ? 360 - change : change;
 }
@@ -532,9 +630,8 @@ view.ui.add(infoPanel, "top-right");
 
 const updateInfoPanel = (point) => {
   const anomalyText = point.anomalySegment
-    ? `<p class="panel-warning">
-        This point is one endpoint of the manually selected anomaly segment.
-      </p>`
+    ? `<p><strong>Detection status:</strong> A threshold-based prototype rule has been added for segment-level evidence.</p>
+      <p><strong>Prototype note:</strong> Point selection remains descriptive. The simple detection starter evaluates movement segments, not individual points.</p>`
     : "";
   const isAffectedByPrototypeRule =
     point.order === anomalySegment.fromOrder ||
@@ -635,6 +732,7 @@ const showTrajectoryPanel = () => {
 };
 
 const showAnomalySegmentPanel = () => {
+  const anomalyDetection = selectedAnomalyEvidence.thresholdDetection;
   const speedText = selectedAnomalyEvidence
   ? `${formatNumber(selectedAnomalyEvidence.estimatedSpeed)} km/h`
   : "N/A";
@@ -666,52 +764,40 @@ const showAnomalySegmentPanel = () => {
       : "N/A";
 
   infoPanel.innerHTML = `
-    <h3>Rule-Based Anomaly Evidence</h3>
-    <p><strong>Segment:</strong> Vessel Point 6 → Vessel Point 7</p>
-    <p><strong>Anomaly Type:</strong> Sharp return after unusual detour</p>
-    <p>
-      <strong>Reason:</strong>
-      The vessel first moves away from the established harbour trajectory,
-      then sharply returns toward the expected route.
+    <h3>Threshold-Based Anomaly Detection Starter</h3>
+
+    <p><strong>Primary anomaly segment:</strong> Vessel Point ${selectedAnomalyEvidence.fromOrder} → Vessel Point ${selectedAnomalyEvidence.toOrder}</p>
+
+    <p><strong>Estimated speed:</strong> ${speedText}</p>
+    <p><strong>Heading change:</strong> ${headingChangeText}</p>
+
+    <p><strong>Detection method:</strong> threshold-based prototype rule</p>
+
+    <p><strong>Selection status:</strong> Primary RouteSense anomaly segment retained from the project narrative</p>
+
+    <p><strong>Rule status:</strong> ${
+      anomalyDetection.isRuleFlagged
+        ? "This primary anomaly segment is also flagged by the threshold-based prototype rule."
+        : "This segment remains the primary RouteSense narrative anomaly. It is not currently flagged by the simple threshold rule."
+    }</p>
+
+    <p><strong>Speed threshold:</strong> ${anomalyDetection.speedThreshold.toFixed(2)} km/h</p>
+    <p><strong>Heading threshold:</strong> ${anomalyDetection.headingThreshold}°</p>
+
+    <p><strong>Speed rule:</strong> ${
+      anomalyDetection.isSpeedFlagged ? "Triggered" : "Not triggered"
+    }</p>
+
+    <p><strong>Heading rule:</strong> ${
+      anomalyDetection.isHeadingFlagged ? "Triggered" : "Not triggered"
+    }</p>
+
+    <p class="panel-note">
+      This is a simple detection starter using a threshold-based prototype rule.
+      It is not production-ready anomaly detection and is not trained on real AIS data yet.
     </p>
-    <p>
-      <strong>Interpretation:</strong>
-      Because Points 1–5 create a visible normal movement rhythm, the 6–7
-      segment becomes easier to perceive as unusual.
-    </p>
-    <hr />
-    <ul>
-        <div class="panel-section">
-          <h3>Normal movement baseline</h3>
-          <p>
-            Baseline is calculated from the earlier normal trajectory rhythm
-            across Points 1–5.
-          </p>
-          <p><strong>Average speed:</strong> ${baselineSpeedText}</p>
-          <p><strong>Average heading change:</strong> ${baselineHeadingChangeText}</p>
-        </div>
-
-        <div class="panel-section">
-          <h3>Selected anomaly segment</h3>
-          <p><strong>Estimated speed:</strong> ${speedText}</p>
-          <p><strong>Heading change:</strong> ${headingChangeText}</p>
-        </div>
-
-        <div class="panel-section">
-          <h3>Deviation from baseline</h3>
-          <p><strong>Speed deviation:</strong> ${speedDeviationText}</p>
-          <p><strong>Heading deviation:</strong> ${headingDeviationText}</p>
-        </div>
-
-        <div class="panel-section">
-          <h3>Rule status</h3>
-          <p><strong>Rule:</strong> ${anomalyRule.status}</p>
-          <p><strong>Selection:</strong> Manually selected segment</p>
-          <p><strong>Detection:</strong> Automated anomaly detection has not been added yet.</p>
-        </div>
-    </ul>
   `;
-};
+  };
 
 const showDirectionPanel = (graphicAttributes) => {
   infoPanel.innerHTML = `
