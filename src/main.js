@@ -310,25 +310,25 @@ const trajectoryLine = new Graphic({
   }
 });
 
-const ruleFlaggedSegmentIndex = ruleEvaluatedSegmentEvidence.findIndex(
+const primaryAnomalySegmentIndex = ruleEvaluatedSegmentEvidence.findIndex(
   (segment) => segment.isManuallySelectedAnomaly
 );
 
-const ruleFlaggedSegment =
-  ruleFlaggedSegmentIndex !== -1
-    ? ruleEvaluatedSegmentEvidence[ruleFlaggedSegmentIndex]
+const primaryAnomalyEvidence =
+  primaryAnomalySegmentIndex !== -1
+    ? ruleEvaluatedSegmentEvidence[primaryAnomalySegmentIndex]
     : null;
 
 let anomalyGlowGraphic = null;
 let anomalySegmentGraphic = null;
 
-if (ruleFlaggedSegment) {
-  const flaggedStartPoint = samplePoints[ruleFlaggedSegmentIndex];
-  const flaggedEndPoint = samplePoints[ruleFlaggedSegmentIndex + 1];
+if (primaryAnomalyEvidence) {
+  const primaryAnomalyStartPoint = samplePoints[primaryAnomalySegmentIndex];
+  const primaryAnomalyEndPoint = samplePoints[primaryAnomalySegmentIndex + 1];
 
-  const flaggedSegmentPath = [
-    [flaggedStartPoint.longitude, flaggedStartPoint.latitude],
-    [flaggedEndPoint.longitude, flaggedEndPoint.latitude]
+  const primaryAnomalyPath = [
+    [primaryAnomalyStartPoint.longitude, primaryAnomalyStartPoint.latitude],
+    [primaryAnomalyEndPoint.longitude, primaryAnomalyEndPoint.latitude]
   ];
 
   // Perception-aware anomaly cue.
@@ -336,7 +336,7 @@ if (ruleFlaggedSegment) {
   anomalyGlowGraphic = new Graphic({
     geometry: {
       type: "polyline",
-      paths: [flaggedSegmentPath]
+      paths: [primaryAnomalyPath]
     },
 
     symbol: {
@@ -347,11 +347,11 @@ if (ruleFlaggedSegment) {
     }
   });
 
-  // Threshold-based prototype rule flagged segment.
+  // Primary RouteSense anomaly segment with threshold-based evidence attached.
   anomalySegmentGraphic = new Graphic({
     geometry: {
       type: "polyline",
-      paths: [flaggedSegmentPath]
+      paths: [primaryAnomalyPath]
     },
 
     symbol: {
@@ -363,31 +363,31 @@ if (ruleFlaggedSegment) {
 
     attributes: {
       graphicType: "anomaly-segment",
-      startOrder: flaggedStartPoint.order,
-      endOrder: flaggedEndPoint.order,
-      estimatedSpeed: ruleFlaggedSegment.estimatedSpeed,
-      headingChange: ruleFlaggedSegment.headingChange,
-      isRuleFlagged: ruleFlaggedSegment.thresholdDetection.isRuleFlagged,
-      isSpeedFlagged: ruleFlaggedSegment.thresholdDetection.isSpeedFlagged,
-      isHeadingFlagged: ruleFlaggedSegment.thresholdDetection.isHeadingFlagged,
-      speedThreshold: ruleFlaggedSegment.thresholdDetection.speedThreshold,
-      headingThreshold: ruleFlaggedSegment.thresholdDetection.headingThreshold
+      startOrder: primaryAnomalyStartPoint.order,
+      endOrder: primaryAnomalyEndPoint.order,
+      estimatedSpeed: primaryAnomalyEvidence.estimatedSpeed,
+      headingChange: primaryAnomalyEvidence.headingChange,
+      isRuleFlagged: primaryAnomalyEvidence.thresholdDetection.isRuleFlagged,
+      isSpeedFlagged: primaryAnomalyEvidence.thresholdDetection.isSpeedFlagged,
+      isHeadingFlagged: primaryAnomalyEvidence.thresholdDetection.isHeadingFlagged,
+      speedThreshold: primaryAnomalyEvidence.thresholdDetection.speedThreshold,
+      headingThreshold: primaryAnomalyEvidence.thresholdDetection.headingThreshold
     },
 
     popupTemplate: {
       title: "Threshold-Based Anomaly Detection Starter",
       content: `
-        <b>Segment:</b> Vessel Point ${flaggedStartPoint.order} → Vessel Point ${flaggedEndPoint.order}<br>
+        <b>Segment:</b> Vessel Point ${primaryAnomalyStartPoint.order} → Vessel Point ${primaryAnomalyEndPoint.order}<br>
         <b>Detection method:</b> Threshold-based prototype rule<br>
-        <b>Estimated speed:</b> ${ruleFlaggedSegment.estimatedSpeed.toFixed(2)} km/h<br>
-        <b>Heading change:</b> ${ruleFlaggedSegment.headingChange?.toFixed(2) ?? "N/A"}°<br>
-        <b>Speed threshold:</b> ${ruleFlaggedSegment.thresholdDetection.speedThreshold.toFixed(2)} km/h<br>
-        <b>Heading threshold:</b> ${ruleFlaggedSegment.thresholdDetection.headingThreshold}°<br>
+        <b>Estimated speed:</b> ${primaryAnomalyEvidence.estimatedSpeed.toFixed(2)} km/h<br>
+        <b>Heading change:</b> ${primaryAnomalyEvidence.headingChange?.toFixed(2) ?? "N/A"}°<br>
+        <b>Speed threshold:</b> ${primaryAnomalyEvidence.thresholdDetection.speedThreshold.toFixed(2)} km/h<br>
+        <b>Heading threshold:</b> ${primaryAnomalyEvidence.thresholdDetection.headingThreshold}°<br>
         <b>Speed rule:</b> ${
-          ruleFlaggedSegment.thresholdDetection.isSpeedFlagged ? "Triggered" : "Not triggered"
+          primaryAnomalyEvidence.thresholdDetection.isSpeedFlagged ? "Triggered" : "Not triggered"
         }<br>
         <b>Heading rule:</b> ${
-          ruleFlaggedSegment.thresholdDetection.isHeadingFlagged ? "Triggered" : "Not triggered"
+          primaryAnomalyEvidence.thresholdDetection.isHeadingFlagged ? "Triggered" : "Not triggered"
         }<br>
         <b>Note:</b> This is a simple threshold-based detection starter. It is not production-ready anomaly detection and has not been trained or validated on real AIS data.
       `
