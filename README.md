@@ -137,7 +137,9 @@ identification accuracy, confidence, and cognitive load (NASA-TLX). Not yet cond
 | 5–5.5 | Point interaction, unified panel model | ✅ |
 | 6     | Computed trajectory evidence (speed, heading) + baseline comparison | ✅ |
 | 7     | Threshold-based detection starter | ✅ |
-| 8     | Multi-feature rules, threshold tuning, real AIS data | 🔲 Planned |
+| 7.5   | Modular analysis pipeline and regression tests | ✅ |
+| 8     | Multi-feature rule explanation and threshold tuning | 🔲 Planned |
+| 9     | Real AIS data integration | 🔲 Planned |
 
 ## Tech Stack
 
