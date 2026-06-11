@@ -56,11 +56,11 @@ body,
 }
 
 .normal-line {
-  border-top-color: rgba(40, 110, 180, 0.75);
+  border-top-color: var(--rs-normal-color, rgb(0, 102, 255));
 }
 
 .anomaly-line {
-  border-top-color: rgba(255, 80, 60, 0.95);
+  border-top-color: var(--rs-anomaly-color, rgba(255, 80, 60, 0.95));
   border-top-style: dashed;
 }
 
@@ -81,9 +81,3 @@ body,
   margin-bottom: 0;
 }
 
-.panel-warning {
-  padding: 8px 10px;
-  border-left: 4px solid #ff503c;
-  background: rgba(255, 80, 60, 0.12);
-  font-weight: 600;
-}
