@@ -4,7 +4,8 @@ A JavaScript + ArcGIS prototype exploring how perception-aware interface design
 helps users notice and interpret unusual vessel movement in maritime trajectory data.
 
 > Portfolio project for a thesis-based MSc Computer Science application
-> (GeoAI / maritime trajectory analysis).
+> focused on maritime trajectory visualization, geospatial analysis, and the
+> interface layer for future GeoAI-based anomaly detection.
 
 ---
 
@@ -17,8 +18,8 @@ renders an 8-point Halifax Harbour trajectory with perception-aware anomaly cues
 a panel-first interaction model, computed trajectory evidence (estimated speed and
 heading change), and a threshold-based detection starter that evaluates every
 segment against a normal-movement baseline. The project deliberately develops the
-visualization and interpretation layer before full automated detection, so that
-detection logic has a meaningful interface to surface into.
+visualization and interpretation layer before full automated or AI-based detection,
+so that future detection logic has a meaningful interface to surface into.
 
 ---
 
