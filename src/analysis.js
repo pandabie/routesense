@@ -131,3 +131,105 @@ export function buildTrajectoryModel(points, { anomalySegment, baselineRange, th
     flaggedSegments: segments.filter((s) => s.detection.flagged)
   };
 }
+
+export const PRIMARY_ROUTESENSE_ANOMALY = {
+  fromOrder: 6,
+  toOrder: 7,
+};
+
+export function getSegmentKey(fromOrder, toOrder) {
+  return `${fromOrder}->${toOrder}`;
+}
+
+export function classifyRuleEvidenceSegment(
+  segment,
+  primarySegment = PRIMARY_ROUTESENSE_ANOMALY
+) {
+  const { fromOrder, toOrder } = segment;
+
+  if (
+    fromOrder === primarySegment.fromOrder &&
+    toOrder === primarySegment.toOrder
+  ) {
+    return {
+      role: "primary-anomaly",
+      title: "Primary RouteSense anomaly",
+      description:
+        "This segment is the main perception-aware anomaly used in the RouteSense narrative.",
+    };
+  }
+
+  if (toOrder === primarySegment.fromOrder) {
+    return {
+      role: "pre-anomaly-evidence",
+      title: "Pre-anomaly rule evidence",
+      description:
+        "This segment occurs immediately before the primary anomaly and helps reviewers inspect the lead-in pattern.",
+    };
+  }
+
+  if (fromOrder === primarySegment.toOrder) {
+    return {
+      role: "post-anomaly-evidence",
+      title: "Post-anomaly rule evidence",
+      description:
+        "This segment occurs immediately after the primary anomaly and helps reviewers inspect the continuation pattern.",
+    };
+  }
+
+  return {
+    role: "supporting-rule-evidence",
+    title: "Supporting rule evidence",
+    description:
+      "This segment was flagged by the prototype rule and is available for review.",
+  };
+}
+
+export function buildRuleEvidenceReasons(segment) {
+  const reasons = [];
+
+  if (segment.exceedsSpeedThreshold) {
+    reasons.push("Estimated speed exceeds the prototype speed threshold.");
+  }
+
+  if (segment.exceedsHeadingThreshold) {
+    reasons.push("Heading change exceeds the prototype heading threshold.");
+  }
+
+  if (reasons.length === 0) {
+    reasons.push("Flagged by the threshold-based prototype rule.");
+  }
+
+  return reasons;
+}
+
+export function createRuleEvidenceReviewItems(
+  ruleFlaggedSegments,
+  primarySegment = PRIMARY_ROUTESENSE_ANOMALY
+) {
+  return ruleFlaggedSegments.map((segment) => {
+    const relation = classifyRuleEvidenceSegment(segment, primarySegment);
+
+    return {
+      id: `rule-evidence-${segment.fromOrder}-${segment.toOrder}`,
+      segmentKey: getSegmentKey(segment.fromOrder, segment.toOrder),
+      label: `Point ${segment.fromOrder} → Point ${segment.toOrder}`,
+      fromOrder: segment.fromOrder,
+      toOrder: segment.toOrder,
+
+      role: relation.role,
+      title: relation.title,
+      description: relation.description,
+
+      isPrimaryAnomaly: relation.role === "primary-anomaly",
+      isSupportingEvidence: relation.role !== "primary-anomaly",
+
+      reasons: segment.reasons ?? buildRuleEvidenceReasons(segment),
+
+      metrics: {
+        speedKnots: segment.speedKnots,
+        headingChangeDegrees: segment.headingChangeDegrees,
+      },
+    };
+  });
+}

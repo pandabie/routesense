@@ -15,6 +15,11 @@ import { getHeadingChange, getDistanceKm, average } from "../src/geo.js";
 import { samplePoints } from "../src/data.js";
 import { ANOMALY_SEGMENT, NORMAL_BASELINE_RANGE, THRESHOLD_RULE } from "../src/config.js";
 
+import {
+  classifyRuleEvidenceSegment,
+  createRuleEvidenceReviewItems,
+} from "../src/analysis.js";
+
 const model = buildTrajectoryModel(samplePoints, {
   anomalySegment: ANOMALY_SEGMENT,
   baselineRange: NORMAL_BASELINE_RANGE,
@@ -82,4 +87,75 @@ test("detection degrades safely when the baseline has no valid speed", () => {
   for (const segment of detected) {
     assert.equal(segment.detection.speedFlagged, false);
   }
+});
+
+
+test("keeps Point 6 to Point 7 as the primary RouteSense anomaly", () => {
+  const relation = classifyRuleEvidenceSegment({
+    fromOrder: 6,
+    toOrder: 7,
+  });
+
+  assert.equal(relation.role, "primary-anomaly");
+  assert.equal(relation.title, "Primary RouteSense anomaly");
+});
+
+test("classifies Point 5 to Point 6 as pre-anomaly evidence", () => {
+  const relation = classifyRuleEvidenceSegment({
+    fromOrder: 5,
+    toOrder: 6,
+  });
+
+  assert.equal(relation.role, "pre-anomaly-evidence");
+});
+
+test("classifies Point 7 to Point 8 as post-anomaly evidence", () => {
+  const relation = classifyRuleEvidenceSegment({
+    fromOrder: 7,
+    toOrder: 8,
+  });
+
+  assert.equal(relation.role, "post-anomaly-evidence");
+});
+
+test("creates review items without replacing the primary anomaly", () => {
+  const ruleFlaggedSegments = [
+    {
+      fromOrder: 5,
+      toOrder: 6,
+      exceedsSpeedThreshold: true,
+      exceedsHeadingThreshold: false,
+      speedKnots: 18.2,
+      headingChangeDegrees: 12,
+    },
+    {
+      fromOrder: 6,
+      toOrder: 7,
+      exceedsSpeedThreshold: true,
+      exceedsHeadingThreshold: true,
+      speedKnots: 26.4,
+      headingChangeDegrees: 61,
+    },
+    {
+      fromOrder: 7,
+      toOrder: 8,
+      exceedsSpeedThreshold: false,
+      exceedsHeadingThreshold: true,
+      speedKnots: 11.8,
+      headingChangeDegrees: 49,
+    },
+  ];
+
+  const reviewItems = createRuleEvidenceReviewItems(ruleFlaggedSegments);
+
+  assert.equal(reviewItems.length, 3);
+
+  assert.equal(reviewItems[0].role, "pre-anomaly-evidence");
+  assert.equal(reviewItems[0].isSupportingEvidence, true);
+
+  assert.equal(reviewItems[1].role, "primary-anomaly");
+  assert.equal(reviewItems[1].isPrimaryAnomaly, true);
+
+  assert.equal(reviewItems[2].role, "post-anomaly-evidence");
+  assert.equal(reviewItems[2].isSupportingEvidence, true);
 });
