@@ -146,8 +146,18 @@ export function renderRuleEvidenceReview(reviewItems = []) {
     return "";
   }
 
+  const primaryCount = reviewItems.filter(
+    (item) => item.role === "primary-anomaly"
+  ).length;
+  const supportingCount = reviewItems.length - primaryCount;
+
   const evidenceItemsMarkup = reviewItems
     .map((item) => {
+      const isPrimary = item.role === "primary-anomaly";
+      const priorityLabel = isPrimary
+        ? "Primary anomaly"
+        : "Supporting evidence";
+
       const reasonsMarkup =
         Array.isArray(item.reasons) && item.reasons.length > 0
           ? `
@@ -176,17 +186,34 @@ export function renderRuleEvidenceReview(reviewItems = []) {
         <li
           class="rule-evidence-item rule-evidence-item--${item.role}"
           data-segment-key="${item.segmentKey}"
+          data-evidence-priority="${isPrimary ? "primary" : "supporting"}"
         >
-          <p class="rule-evidence-item__heading">
-            <strong>${item.label}:</strong>
-            ${item.title}
+          <div class="rule-evidence-item__header">
+            <strong class="rule-evidence-item__segment">${item.label}</strong>
+            <span class="rule-evidence-badge rule-evidence-badge--${
+              isPrimary ? "primary" : "supporting"
+            }">
+              ${priorityLabel}
+            </span>
+          </div>
+
+          <p class="rule-evidence-item__relation">${item.title}</p>
+          <p class="rule-evidence-item__description">${item.description}</p>
+
+          <dl class="rule-evidence-metrics">
+            <div>
+              <dt>Estimated speed</dt>
+              <dd>${speed}</dd>
+            </div>
+            <div>
+              <dt>Heading change</dt>
+              <dd>${headingChange}</dd>
+            </div>
+          </dl>
+
+          <p class="rule-evidence-reasons__heading">
+            <strong>Threshold evidence</strong>
           </p>
-          <p>${item.description}</p>
-          <p class="rule-evidence-metrics">
-            <strong>Observed:</strong>
-            ${speed}; heading change ${headingChange}
-          </p>
-          <p><strong>Why the rule flagged this segment:</strong></p>
           ${reasonsMarkup}
         </li>
       `;
@@ -195,12 +222,17 @@ export function renderRuleEvidenceReview(reviewItems = []) {
 
   return `
     <div class="panel-section rule-evidence-review">
-      <h3>Rule Evidence Review</h3>
+      <div class="rule-evidence-review__header">
+        <h3>Rule Evidence Review</h3>
+        <p class="rule-evidence-review__summary">
+          ${primaryCount} primary anomaly · ${supportingCount} supporting evidence items
+        </p>
+      </div>
 
-      <p>
-        The prototype threshold rule identifies segments for review.
-        Vessel Point 6 \u2192 Vessel Point 7 remains the primary
-        RouteSense anomaly. Other flagged segments are supporting
+      <p class="rule-evidence-review__introduction">
+        The threshold rule identifies segments for review, but it does not
+        redefine the RouteSense narrative. Vessel Point 6 \u2192 Vessel Point 7
+        remains the primary anomaly. Adjacent flagged segments are supporting
         evidence and do not replace the main anomaly highlight.
       </p>
 
