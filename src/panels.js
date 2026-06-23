@@ -73,7 +73,7 @@ export function renderTrajectoryPanel(metadata) {
 }
 
 export function renderAnomalyPanel(model) {
- const {
+  const {
     anomalyEvidence,
     anomalyDeviation,
     baseline,
@@ -163,13 +163,29 @@ export function renderRuleEvidenceReview(reviewItems = []) {
             </p>
           `;
 
+      const speed =
+        item.metrics?.estimatedSpeed != null
+          ? `${formatNumber(item.metrics.estimatedSpeed)} km/h`
+          : "N/A";
+      const headingChange =
+        item.metrics?.headingChange != null
+          ? `${formatNumber(item.metrics.headingChange)}\u00B0`
+          : "N/A";
+
       return `
-        <li class="rule-evidence-item rule-evidence-item--${item.role}">
-          <p>
+        <li
+          class="rule-evidence-item rule-evidence-item--${item.role}"
+          data-segment-key="${item.segmentKey}"
+        >
+          <p class="rule-evidence-item__heading">
             <strong>${item.label}:</strong>
             ${item.title}
           </p>
           <p>${item.description}</p>
+          <p class="rule-evidence-metrics">
+            <strong>Observed:</strong>
+            ${speed}; heading change ${headingChange}
+          </p>
           <p><strong>Why the rule flagged this segment:</strong></p>
           ${reasonsMarkup}
         </li>

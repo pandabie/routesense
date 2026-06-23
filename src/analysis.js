@@ -118,6 +118,7 @@ export function buildTrajectoryModel(points, { anomalySegment, baselineRange, th
   const { segments, thresholds } = applyDetection(baseSegments, baseline, thresholdRule);
 
   const anomalyEvidence = segments.find((s) => s.isPrimaryAnomaly) ?? null;
+  const flaggedSegments = segments.filter((s) => s.detection.flagged);
 
   return {
     segments,
@@ -128,7 +129,10 @@ export function buildTrajectoryModel(points, { anomalySegment, baselineRange, th
     // Exposed directly because the over-flagging behaviour of the threshold
     // rule is a documented research finding (see README) and is pinned by a
     // regression test.
-    flaggedSegments: segments.filter((s) => s.detection.flagged)
+    flaggedSegments,
+    // Phase 8 presentation model. Keeping this derived value inside the
+    // trajectory model preserves a single source of truth for panel rendering.
+    ruleEvidenceItems: createRuleEvidenceReviewItems(flaggedSegments, anomalySegment)
   };
 }
 
@@ -188,12 +192,12 @@ export function classifyRuleEvidenceSegment(
 export function buildRuleEvidenceReasons(segment) {
   const reasons = [];
 
-  if (segment.exceedsSpeedThreshold) {
-    reasons.push("Estimated speed exceeds the prototype speed threshold.");
+  if (segment.detection?.speedFlagged) {
+    reasons.push("Estimated speed triggered the prototype speed threshold.");
   }
 
-  if (segment.exceedsHeadingThreshold) {
-    reasons.push("Heading change exceeds the prototype heading threshold.");
+  if (segment.detection?.headingFlagged) {
+    reasons.push("Heading change triggered the prototype heading threshold.");
   }
 
   if (reasons.length === 0) {
@@ -227,9 +231,9 @@ export function createRuleEvidenceReviewItems(
       reasons: segment.reasons ?? buildRuleEvidenceReasons(segment),
 
       metrics: {
-        speedKnots: segment.speedKnots,
-        headingChangeDegrees: segment.headingChangeDegrees,
-      },
+        estimatedSpeed: segment.estimatedSpeed,
+        headingChange: segment.headingChange
+      }
     };
   });
 }

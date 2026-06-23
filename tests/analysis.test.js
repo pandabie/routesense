@@ -10,15 +10,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildTrajectoryModel, buildSegments, computeBaseline, applyDetection } from "../src/analysis.js";
+import {
+  buildTrajectoryModel,
+  buildSegments,
+  computeBaseline,
+  applyDetection,
+  classifyRuleEvidenceSegment
+} from "../src/analysis.js";
 import { getHeadingChange, getDistanceKm, average } from "../src/geo.js";
 import { samplePoints } from "../src/data.js";
 import { ANOMALY_SEGMENT, NORMAL_BASELINE_RANGE, THRESHOLD_RULE } from "../src/config.js";
 
-import {
-  classifyRuleEvidenceSegment,
-  createRuleEvidenceReviewItems,
-} from "../src/analysis.js";
 
 const model = buildTrajectoryModel(samplePoints, {
   anomalySegment: ANOMALY_SEGMENT,
@@ -118,44 +120,32 @@ test("classifies Point 7 to Point 8 as post-anomaly evidence", () => {
   assert.equal(relation.role, "post-anomaly-evidence");
 });
 
-test("creates review items without replacing the primary anomaly", () => {
-  const ruleFlaggedSegments = [
-    {
-      fromOrder: 5,
-      toOrder: 6,
-      exceedsSpeedThreshold: true,
-      exceedsHeadingThreshold: false,
-      speedKnots: 18.2,
-      headingChangeDegrees: 12,
-    },
-    {
-      fromOrder: 6,
-      toOrder: 7,
-      exceedsSpeedThreshold: true,
-      exceedsHeadingThreshold: true,
-      speedKnots: 26.4,
-      headingChangeDegrees: 61,
-    },
-    {
-      fromOrder: 7,
-      toOrder: 8,
-      exceedsSpeedThreshold: false,
-      exceedsHeadingThreshold: true,
-      speedKnots: 11.8,
-      headingChangeDegrees: 49,
-    },
-  ];
-
-  const reviewItems = createRuleEvidenceReviewItems(ruleFlaggedSegments);
+test("creates review items from the real detected segments without replacing the primary anomaly", () => {
+  const reviewItems = model.ruleEvidenceItems;
 
   assert.equal(reviewItems.length, 3);
 
+  assert.equal(reviewItems[0].segmentKey, "5->6");
   assert.equal(reviewItems[0].role, "pre-anomaly-evidence");
   assert.equal(reviewItems[0].isSupportingEvidence, true);
+  assert.deepEqual(reviewItems[0].reasons, [
+    "Estimated speed triggered the prototype speed threshold.",
+    "Heading change triggered the prototype heading threshold."
+  ]);
 
+  assert.equal(reviewItems[1].segmentKey, "6->7");
   assert.equal(reviewItems[1].role, "primary-anomaly");
   assert.equal(reviewItems[1].isPrimaryAnomaly, true);
 
+  assert.equal(reviewItems[2].segmentKey, "7->8");
   assert.equal(reviewItems[2].role, "post-anomaly-evidence");
   assert.equal(reviewItems[2].isSupportingEvidence, true);
+  assert.deepEqual(reviewItems[2].reasons, [
+    "Heading change triggered the prototype heading threshold."
+  ]);
+
+  for (const item of reviewItems) {
+    assert.equal(typeof item.metrics.estimatedSpeed, "number");
+    assert.equal(typeof item.metrics.headingChange, "number");
+  }
 });
