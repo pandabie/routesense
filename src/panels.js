@@ -73,7 +73,13 @@ export function renderTrajectoryPanel(metadata) {
 }
 
 export function renderAnomalyPanel(model) {
-  const { anomalyEvidence, anomalyDeviation, baseline, thresholds } = model;
+ const {
+    anomalyEvidence,
+    anomalyDeviation,
+    baseline,
+    thresholds,
+    ruleEvidenceItems = [],
+  } = model;
 
   if (!anomalyEvidence) return renderDefaultPanel();
 
@@ -113,6 +119,8 @@ export function renderAnomalyPanel(model) {
       }</p>
     </div>
 
+    ${renderRuleEvidenceReview(ruleEvidenceItems)}
+
     <p class="panel-note">
       This is a simple threshold-based detection starter. It is not
       production-ready anomaly detection and has not been validated on real AIS data.
@@ -130,5 +138,59 @@ export function renderDirectionPanel(attributes) {
       Direction cues help users read the trajectory as an ordered movement
       pattern rather than a disconnected set of points.
     </p>
+  `;
+}
+
+export function renderRuleEvidenceReview(reviewItems = []) {
+  if (!Array.isArray(reviewItems) || reviewItems.length === 0) {
+    return "";
+  }
+
+  const evidenceItemsMarkup = reviewItems
+    .map((item) => {
+      const reasonsMarkup =
+        Array.isArray(item.reasons) && item.reasons.length > 0
+          ? `
+            <ul class="rule-evidence-reasons">
+              ${item.reasons
+                .map((reason) => `<li>${reason}</li>`)
+                .join("")}
+            </ul>
+          `
+          : `
+            <p class="panel-note">
+              No additional threshold explanation is available.
+            </p>
+          `;
+
+      return `
+        <li class="rule-evidence-item rule-evidence-item--${item.role}">
+          <p>
+            <strong>${item.label}:</strong>
+            ${item.title}
+          </p>
+          <p>${item.description}</p>
+          <p><strong>Why the rule flagged this segment:</strong></p>
+          ${reasonsMarkup}
+        </li>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="panel-section rule-evidence-review">
+      <h3>Rule Evidence Review</h3>
+
+      <p>
+        The prototype threshold rule identifies segments for review.
+        Vessel Point 6 \u2192 Vessel Point 7 remains the primary
+        RouteSense anomaly. Other flagged segments are supporting
+        evidence and do not replace the main anomaly highlight.
+      </p>
+
+      <ol class="rule-evidence-list">
+        ${evidenceItemsMarkup}
+      </ol>
+    </div>
   `;
 }
