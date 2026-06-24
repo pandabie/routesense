@@ -228,6 +228,11 @@ export function createRuleEvidenceReviewItems(
       isPrimaryAnomaly: relation.role === "primary-anomaly",
       isSupportingEvidence: relation.role !== "primary-anomaly",
 
+      triggers: {
+        speed: Boolean(segment.detection?.speedFlagged),
+        heading: Boolean(segment.detection?.headingFlagged)
+      },
+
       reasons: segment.reasons ?? buildRuleEvidenceReasons(segment),
 
       metrics: {
