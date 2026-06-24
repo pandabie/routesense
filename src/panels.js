@@ -20,8 +20,8 @@ export function renderDefaultPanel() {
       when compared with the surrounding trajectory context.
     </p>
     <p>
-      Click a vessel point to inspect its local trajectory context and compare
-      it with the highlighted anomaly segment.
+      Click a trajectory segment to inspect its evidence role, or click a
+      vessel point to inspect its local trajectory context.
     </p>
     ${legendMarkup}
   `;
@@ -69,6 +69,143 @@ export function renderTrajectoryPanel(metadata) {
       Points 1-5 establish the expected movement rhythm, while the highlighted
       segment shows the primary anomaly used for visualization.
     </p>
+  `;
+}
+
+export function renderNormalSegmentPanel(
+  segment,
+  { thresholds, primaryAnomaly }
+) {
+  if (!segment) return renderDefaultPanel();
+
+  const speed =
+    segment.estimatedSpeed != null
+      ? `${formatNumber(segment.estimatedSpeed)} km/h`
+      : "N/A";
+  const headingAvailable = segment.headingChange != null;
+  const headingChange = headingAvailable
+    ? `${formatNumber(segment.headingChange)}\u00B0`
+    : "N/A";
+
+  const headingComparison = headingAvailable
+    ? `${formatNumber(thresholds.headingThreshold)}\u00B0 - Not triggered`
+    : `${formatNumber(thresholds.headingThreshold)}\u00B0 - Not triggered (heading change unavailable)`;
+
+  const headingContextNote = headingAvailable
+    ? ""
+    : `<p class="panel-note compact-panel-note">
+         A previous segment is required to calculate heading change. N/A does
+         not mean a 0\u00B0 turn.
+       </p>`;
+
+  return `
+    <h3>Normal Segment Context</h3>
+
+    <p>
+      <strong>Selected segment:</strong>
+      Vessel Point ${segment.fromOrder} \u2192 Vessel Point ${segment.toOrder}
+    </p>
+
+    <div class="panel-section normal-segment-context">
+      <p><strong>Review role:</strong> Normal movement context</p>
+      <p><strong>Rule status:</strong> Not flagged</p>
+      <p>
+        This segment contributes to the expected movement context used to
+        interpret the primary anomaly.
+      </p>
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Observed segment evidence</strong></p>
+      <p>Estimated speed: ${speed}</p>
+      <p>Heading change: ${headingChange}</p>
+      ${headingContextNote}
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Threshold comparison</strong></p>
+      <p>Speed threshold: ${formatNumber(thresholds.speedThreshold)} km/h -
+         Not triggered</p>
+      <p>Heading threshold: ${headingComparison}</p>
+    </div>
+
+    <div class="primary-anomaly-anchor">
+      <p>
+        <strong>Primary anomaly:</strong>
+        Vessel Point ${primaryAnomaly.fromOrder} \u2192 Vessel Point ${primaryAnomaly.toOrder}
+      </p>
+      <p>Select that segment to view the complete rule evidence review.</p>
+    </div>
+  `;
+}
+
+function getTriggerSummary(item) {
+  const speedTriggered = Boolean(item.triggers?.speed);
+  const headingTriggered = Boolean(item.triggers?.heading);
+
+  if (speedTriggered && headingTriggered) return "Speed + heading change";
+  if (speedTriggered) return "Speed only";
+  if (headingTriggered) return "Heading change only";
+  return "No threshold trigger recorded";
+}
+
+export function renderRuleEvidenceSegmentPanel(
+  reviewItem,
+  { thresholds, primaryAnomaly }
+) {
+  if (!reviewItem) return renderDefaultPanel();
+
+  const isPrimary = reviewItem.isPrimaryAnomaly;
+  const roleLabel = isPrimary ? "Primary anomaly" : "Supporting evidence";
+  const speed =
+    reviewItem.metrics?.estimatedSpeed != null
+      ? `${formatNumber(reviewItem.metrics.estimatedSpeed)} km/h`
+      : "N/A";
+  const headingChange =
+    reviewItem.metrics?.headingChange != null
+      ? `${formatNumber(reviewItem.metrics.headingChange)}\u00B0`
+      : "N/A";
+
+  const reasonsMarkup = Array.isArray(reviewItem.reasons)
+    ? reviewItem.reasons.map((reason) => `<li>${reason}</li>`).join("")
+    : "";
+
+  return `
+    <h3>${isPrimary ? "Primary RouteSense Anomaly" : "Supporting Rule Evidence"}</h3>
+
+    <p>
+      <strong>Selected segment:</strong>
+      Vessel Point ${reviewItem.fromOrder} \u2192 Vessel Point ${reviewItem.toOrder}
+    </p>
+
+    <div class="panel-section rule-evidence-item--${reviewItem.role}">
+      <p><strong>Relation:</strong> ${reviewItem.title}</p>
+      <p>${reviewItem.description}</p>
+      <p><strong>Triggered by:</strong> ${getTriggerSummary(reviewItem)}</p>
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Observed segment evidence</strong></p>
+      <p>Estimated speed: ${speed}</p>
+      <p>Heading change: ${headingChange}</p>
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Threshold comparison</strong></p>
+      <p>Speed threshold: ${formatNumber(thresholds.speedThreshold)} km/h -
+         ${reviewItem.triggers?.speed ? "Triggered" : "Not triggered"}</p>
+      <p>Heading threshold: ${formatNumber(thresholds.headingThreshold)}\u00B0 -
+         ${reviewItem.triggers?.heading ? "Triggered" : "Not triggered"}</p>
+      <ul class="rule-evidence-reasons">${reasonsMarkup}</ul>
+    </div>
+
+    <div class="primary-anomaly-anchor">
+      <p>
+        <strong>Primary anomaly:</strong>
+        Vessel Point ${primaryAnomaly.fromOrder} \u2192 Vessel Point ${primaryAnomaly.toOrder}
+      </p>
+      <p>Select that segment to view the complete rule evidence review.</p>
+    </div>
   `;
 }
 
@@ -158,6 +295,8 @@ export function renderRuleEvidenceReview(reviewItems = []) {
         ? "Primary anomaly"
         : "Supporting evidence";
 
+      const triggerSummary = getTriggerSummary(item);
+
       const reasonsMarkup =
         Array.isArray(item.reasons) && item.reasons.length > 0
           ? `
@@ -199,6 +338,11 @@ export function renderRuleEvidenceReview(reviewItems = []) {
 
           <p class="rule-evidence-item__relation">${item.title}</p>
           <p class="rule-evidence-item__description">${item.description}</p>
+
+          <p class="rule-evidence-item__status">
+            <strong>Review role:</strong> ${priorityLabel}<br />
+            <strong>Triggered by:</strong> ${triggerSummary}
+          </p>
 
           <dl class="rule-evidence-metrics">
             <div>

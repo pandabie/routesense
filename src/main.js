@@ -35,6 +35,8 @@ import {
   renderPointPanel,
   renderTrajectoryPanel,
   renderAnomalyPanel,
+  renderRuleEvidenceSegmentPanel,
+  renderNormalSegmentPanel,
   renderDirectionPanel
 } from "./panels.js";
 
@@ -67,21 +69,34 @@ view.popupEnabled = false;
 // MAP GRAPHICS
 // ============================================================
 
-// --- Trajectory line ---
-view.graphics.add(
-  new Graphic({
-    geometry: {
-      type: "polyline",
-      paths: [samplePoints.map((p) => [p.longitude, p.latitude])]
-    },
-    symbol: {
-      type: "simple-line",
-      color: ENCODING.normalLine.color,
-      width: ENCODING.normalLine.width
-    },
-    attributes: { graphicType: "trajectory-line" }
-  })
-);
+// --- Trajectory segments ---
+// Rendered separately with identical normal styling so each segment can own
+// its panel interaction without changing the visual route encoding.
+model.segments.forEach((segment) => {
+  view.graphics.add(
+    new Graphic({
+      geometry: {
+        type: "polyline",
+        paths: [[
+          [segment.start.longitude, segment.start.latitude],
+          [segment.end.longitude, segment.end.latitude]
+        ]]
+      },
+      symbol: {
+        type: "simple-line",
+        color: ENCODING.normalLine.color,
+        width: ENCODING.normalLine.width
+      },
+      attributes: {
+        graphicType: "trajectory-segment",
+        fromOrder: segment.fromOrder,
+        toOrder: segment.toOrder,
+        flagged: segment.detection.flagged,
+        isPrimaryAnomaly: segment.isPrimaryAnomaly
+      }
+    })
+  );
+});
 
 // --- Anomaly cue (glow + dashed line) ---
 // Built only if the configured anomaly segment exists in the data.
@@ -224,15 +239,72 @@ infoPanel.innerHTML = renderDefaultPanel();
 // A single dispatcher routes clicks by graphicType.
 // ============================================================
 
+function getRuleEvidenceItem(attributes) {
+  return model.ruleEvidenceItems.find(
+    (item) =>
+      item.fromOrder === attributes.fromOrder &&
+      item.toOrder === attributes.toOrder
+  ) ?? null;
+}
+
+function getTrajectorySegment(attributes) {
+  return model.segments.find(
+    (segment) =>
+      segment.fromOrder === attributes.fromOrder &&
+      segment.toOrder === attributes.toOrder
+  ) ?? null;
+}
+
 const panelByGraphicType = {
-  "trajectory-line": () => renderTrajectoryPanel(trajectoryMetadata),
+  "trajectory-segment": (attributes) => {
+    const reviewItem = getRuleEvidenceItem(attributes);
+
+    if (reviewItem?.isPrimaryAnomaly) {
+      return renderAnomalyPanel(model);
+    }
+
+    if (reviewItem) {
+      return renderRuleEvidenceSegmentPanel(reviewItem, {
+        thresholds: model.thresholds,
+        primaryAnomaly: model.anomalyEvidence
+      });
+    }
+
+    const segment = getTrajectorySegment(attributes);
+
+    return segment
+      ? renderNormalSegmentPanel(segment, {
+          thresholds: model.thresholds,
+          primaryAnomaly: model.anomalyEvidence
+        })
+      : renderTrajectoryPanel(trajectoryMetadata);
+  },
   "anomaly-segment": () => renderAnomalyPanel(model),
   "direction-arrow": (attributes) => renderDirectionPanel(attributes)
 };
 
 view.on("click", (event) => {
   view.hitTest(event).then((response) => {
-    const hit = response.results.find((r) => r.graphic?.attributes?.graphicType);
+    const interactiveHits = response.results.filter(
+      (result) => result.graphic?.attributes?.graphicType
+    );
+
+    // Prefer evidence-bearing line segments over direction arrows when their
+    // hit areas overlap. Vessel points remain the highest-priority selection.
+    const hitPriority = [
+      "vessel-point",
+      "anomaly-segment",
+      "trajectory-segment",
+      "direction-arrow"
+    ];
+
+    const hit = hitPriority
+      .map((graphicType) =>
+        interactiveHits.find(
+          (result) => result.graphic.attributes.graphicType === graphicType
+        )
+      )
+      .find(Boolean);
 
     // Clicked empty space: clear selection and reset.
     if (!hit) {

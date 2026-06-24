@@ -180,6 +180,20 @@ body,
   color: #52606d;
 }
 
+.rule-evidence-item__status {
+  margin: 7px 0 8px !important;
+  padding: 6px 8px;
+  background: rgba(82, 96, 109, 0.07);
+  border-radius: 5px;
+  color: #323f4b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rule-evidence-item--primary-anomaly .rule-evidence-item__status {
+  background: rgba(255, 80, 60, 0.08);
+}
+
 .rule-evidence-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -220,4 +234,34 @@ body,
 .rule-evidence-reasons li {
   display: list-item;
   margin-top: 4px;
+}
+
+.normal-segment-context {
+  border-left-color: var(--rs-normal-color, rgb(0, 102, 255));
+  background: rgba(40, 110, 180, 0.07);
+}
+
+.primary-anomaly-anchor {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--rs-anomaly-color, rgba(255, 80, 60, 0.95));
+  background: rgba(255, 80, 60, 0.055);
+  border-radius: 6px;
+  color: #3e4c59;
+}
+
+.primary-anomaly-anchor p {
+  margin-bottom: 4px;
+}
+
+.primary-anomaly-anchor p:last-child {
+  margin-bottom: 0;
+  font-size: 11px;
+}
+
+.compact-panel-note {
+  margin-top: 6px !important;
+  color: #52606d;
+  font-size: 11px;
+  line-height: 1.4;
 }
