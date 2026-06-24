@@ -9,6 +9,17 @@ export const MAP_CONFIG = {
   zoom: 12
 };
 
+// Interface layout tuning.
+// Change these values to resize the panel, control its edge inset, or move
+// the effective map centre. The panel stays anchored to the browser edge;
+// `mapRightPadding` affects only the map framing behind it.
+export const UI_LAYOUT = {
+  infoPanelWidth: 420,
+  panelInset: 16,
+  mapRightPadding: 470,
+  desktopBreakpoint: 900
+};
+
 // The primary anomaly segment for the RouteSense narrative.
 // This single object is the only place the anomaly segment is defined.
 export const ANOMALY_SEGMENT = {

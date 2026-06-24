@@ -21,6 +21,7 @@ import "./style.css";
 
 import {
   MAP_CONFIG,
+  UI_LAYOUT,
   ANOMALY_SEGMENT,
   NORMAL_BASELINE_RANGE,
   THRESHOLD_RULE,
@@ -56,11 +57,23 @@ const model = buildTrajectoryModel(samplePoints, {
 
 const map = new Map({ basemap: MAP_CONFIG.basemap });
 
+function getResponsiveViewPadding() {
+  const useDesktopLayout = window.innerWidth >= UI_LAYOUT.desktopBreakpoint;
+
+  return {
+    top: 0,
+    right: useDesktopLayout ? UI_LAYOUT.mapRightPadding : 0,
+    bottom: 0,
+    left: 0
+  };
+}
+
 const view = new MapView({
   container: "viewDiv",
   map,
   center: MAP_CONFIG.center,
-  zoom: MAP_CONFIG.zoom
+  zoom: MAP_CONFIG.zoom,
+  padding: getResponsiveViewPadding()
 });
 
 view.popupEnabled = false;
@@ -225,7 +238,29 @@ renderPointGraphics();
 
 const infoPanel = document.createElement("div");
 infoPanel.className = "info-panel";
-view.ui.add(infoPanel, "top-right");
+infoPanel.style.setProperty("--rs-panel-width", `${UI_LAYOUT.infoPanelWidth}px`);
+infoPanel.style.setProperty("--rs-panel-inset", `${UI_LAYOUT.panelInset}px`);
+infoPanel.style.setProperty(
+  "--rs-panel-total-inset",
+  `${UI_LAYOUT.panelInset * 2}px`
+);
+
+// Keep the panel anchored to the browser edge instead of ArcGIS's padded UI
+// region. MapView.padding can now reframe the trajectory without moving the
+// panel away from the far-right edge.
+const viewContainer = document.getElementById("viewDiv");
+
+if (!viewContainer) {
+  throw new Error("RouteSense requires a #viewDiv map container.");
+}
+
+viewContainer.append(infoPanel);
+
+function applyResponsiveLayout() {
+  view.padding = getResponsiveViewPadding();
+}
+
+window.addEventListener("resize", applyResponsiveLayout);
 
 // Inject encoding colors into CSS custom properties so the legend in
 // style.css always matches the map symbols (single source of truth).
