@@ -167,6 +167,126 @@ interpretive emphasis in the interface.
 
 ---
 
+## Phase 9.1: AIS Data Contract and Ingestion Boundary
+
+Phase 9.1 adds a pure JavaScript boundary between external AIS records and the
+existing RouteSense analysis pipeline. It does not download, render, or interpret
+a real dataset yet.
+
+`src/ais.js` converts source-specific records into one canonical point shape:
+
+```js
+{
+  id,
+  order,
+  name,
+  vesselId,
+  timestamp, // ISO-8601 UTC
+  latitude,
+  longitude,
+  reported: {
+    sogKnots,
+    cogDegrees,
+    headingDegrees,
+    navigationalStatus: { code, text }
+  },
+  source: { datasetId, rowIndex, recordId },
+  note
+}
+```
+
+AIS-reported measurements remain under `reported`. They are not copied into the
+RouteSense-derived segment metrics such as `estimatedSpeed`, `heading`, or
+`headingChange`.
+
+### Common AIS Field Mapping
+
+The initial explicit field map is:
+
+| Canonical field | Common source field |
+|---|---|
+| vessel identifier | `MMSI` |
+| timestamp | `BaseDateTime` |
+| latitude | `LAT` |
+| longitude | `LON` |
+| reported speed over ground | `SOG` |
+| reported course over ground | `COG` |
+| reported true heading | `Heading` |
+| navigational status | `Status` |
+
+A future dataset adapter may replace these source names without changing the
+canonical point contract.
+
+### Validation and Normalization Rules
+
+- Vessel identifier, timestamp, latitude, and longitude are required.
+- Latitude must be between -90 and 90; longitude between -180 and 180.
+- Numeric strings are converted deliberately; blank values are not coerced to zero.
+- Timestamps require an explicit `Z` or UTC offset by default and are emitted as UTC.
+- A documented source adapter may opt into treating timezone-free source timestamps
+  as UTC.
+- Input observations are sorted chronologically before final point order is assigned.
+- One normalized trajectory may contain only one vessel identifier.
+- Exact duplicate observations are removed and reported as warnings.
+- Equal vessel timestamps with conflicting coordinates fail validation.
+- Standard unavailable values for SOG (`102.3`), COG (`360`), and heading (`511`)
+  become `null`.
+
+The normalizer returns points, warnings, and ingestion statistics. It performs no
+anomaly detection and imports neither ArcGIS nor browser APIs.
+
+### Synthetic and Real Dataset Separation
+
+The current `src/data.js` trajectory remains the Phase 8 regression fixture and
+fallback demonstration. It is not passed through the AIS boundary and its
+existing timestamp interpretation is not rewritten.
+
+A later selection layer will keep dataset assumptions attached to each dataset:
+
+```js
+{
+  id: "synthetic-phase8",
+  kind: "synthetic",
+  points: samplePoints,
+  analysisProfile: {
+    reviewStatus: "fixture",
+    primaryAnomaly: { fromOrder: 6, toOrder: 7 },
+    baselineRange: { fromOrder: 1, toOrder: 5 }
+  }
+}
+```
+
+```js
+{
+  id: "real-ais-sample-01",
+  kind: "real-ais",
+  points: normalizedRealPoints,
+  analysisProfile: {
+    reviewStatus: "unreviewed",
+    primaryAnomaly: null,
+    baselineRange: null
+  }
+}
+```
+
+Real AIS points must not inherit the synthetic primary anomaly, baseline, or
+threshold interpretation automatically.
+
+### Phase 9.1 Acceptance Checklist
+
+- [x] Canonical internal AIS trajectory-point schema is defined.
+- [x] Common AIS fields map explicitly into the canonical schema.
+- [x] Required and optional field validation is isolated from rendering.
+- [x] Output timestamps are normalized to ISO-8601 UTC.
+- [x] Timestamp sorting and duplicate handling are tested.
+- [x] AIS-reported measurements remain separate from computed movement metrics.
+- [x] Mixed-vessel trajectories and conflicting timestamps fail validation.
+- [x] The synthetic Phase 8 fixture and Point 6→7 anomaly remain unchanged.
+- [x] No real AIS dataset has been downloaded, rendered, or described as validated.
+- [x] All 34 tests pass: 23 existing regression tests plus 11 AIS boundary tests.
+
+---
+
 ## Limitations
 
 - **Manually configured primary anomaly.** Segment 6→7 is selected in configuration;
@@ -201,7 +321,8 @@ has not yet been conducted.
 | 7 | Threshold-based detection starter | ✅ Complete |
 | 7.5 | Modular analysis pipeline and regression tests | ✅ Complete |
 | 8 | Rule evidence review, segment-specific explanation, and visual hierarchy | ✅ Complete |
-| 9 | Real AIS data contract and integration | 🔲 Planned |
+| 9.1 | AIS data contract, validation, normalization, and boundary tests | ✅ Complete |
+| 9.2 | Select and adapt a small static real AIS sample | 🔲 Planned |
 
 ---
 
@@ -221,6 +342,7 @@ without an additional geospatial analysis dependency.
 ```text
 routesense/
 ├── src/
+│   ├── ais.js        # Pure AIS field mapping, validation, and normalization
 │   ├── analysis.js   # Segment features, baseline, detection, evidence roles
 │   ├── config.js     # Map, rule, encoding, anomaly, and layout configuration
 │   ├── data.js       # Synthetic AIS-like trajectory and route metadata
@@ -229,6 +351,7 @@ routesense/
 │   ├── panels.js     # Pure data-to-HTML panel renderers
 │   └── style.css     # Map, panel, hierarchy, and responsive styling
 ├── tests/
+│   ├── ais.test.js
 │   ├── analysis.test.js
 │   └── panels.test.js
 ├── index.html
