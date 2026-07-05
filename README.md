@@ -12,8 +12,11 @@ trajectory data.
 
 ## Abstract
 
-RouteSense renders an eight-point synthetic maritime trajectory in Halifax
-Harbour and separates two layers that are often collapsed together:
+RouteSense provides two deliberately separated demonstration modes: an
+eight-point synthetic maritime trajectory in Halifax Harbour for controlled
+rule-evidence analysis, and a four-observation real AIS sample near Gothenburg
+for provenance-aware trajectory display. The synthetic mode separates two
+layers that are often collapsed together:
 
 1. **what a deterministic threshold rule flags**, and
 2. **which segment the visualization treats as the primary anomaly**.
@@ -25,8 +28,10 @@ presents the resulting evidence through a persistent side panel. Vessel Point
 rule-flagged segments are presented as supporting evidence rather than competing
 primary anomalies.
 
-The project currently uses synthetic AIS-like data and a transparent rule-based
-prototype. It does not use machine learning, black-box inference, or real AIS data.
+The project uses a transparent rule-based prototype only on the controlled
+synthetic fixture. The real AIS sample is rendered in observation-only mode: it
+has no inherited baseline, threshold interpretation, or validated anomaly. The
+project does not use machine learning, black-box inference, or live AIS streaming.
 
 ---
 
@@ -287,12 +292,176 @@ threshold interpretation automatically.
 
 ---
 
+## Phase 9.2: Dataset Adapters and Selectable Architecture
+
+Phase 9.2 adds `src/datasets.js` between source data and the ArcGIS composition
+root. `main.js` no longer imports `samplePoints` directly. It selects a dataset
+from a registry and receives the trajectory points, metadata, and analysis
+profile from that dataset descriptor.
+
+The shared descriptor shape is:
+
+```js
+{
+  id,
+  label,
+  kind, // "synthetic" or "real-ais"
+  metadata,
+  points,
+  ingestion,
+  analysisProfile: {
+    reviewStatus,
+    anomalySegment,
+    baselineRange,
+    thresholdRule
+  }
+}
+```
+
+Two adapters enforce different source assumptions:
+
+- `adaptSyntheticDataset()` preserves the controlled Phase 8 fixture exactly,
+  including its existing timestamp format and Point 6→7 narrative anomaly.
+- `adaptRealAisDataset()` passes raw records through the Phase 9.1 AIS
+  normalizer and always marks the resulting trajectory as `unreviewed`.
+
+A newly adapted real AIS dataset receives `null` for its anomaly segment,
+baseline range, and threshold rule. It therefore cannot inherit the synthetic
+fixture's interpretation accidentally.
+
+### Dataset Selection
+
+`DATASET_SELECTION` in `src/config.js` identifies the requested dataset and the
+safe fallback:
+
+```js
+export const DATASET_SELECTION = {
+  activeDatasetId: "synthetic-phase8",
+  fallbackDatasetId: "synthetic-phase8"
+};
+```
+
+`createDatasetRegistry()` rejects duplicate ids. `selectDataset()` returns an
+explicit `usedFallback` flag when the requested id is unavailable. At the Phase
+9.2 checkpoint, the registry intentionally contained only `synthetic-phase8`.
+Phase 9.3 adds a separately sourced real AIS descriptor while
+preserving the same synthetic fallback.
+
+Before building the Phase 8 analysis model, `main.js` calls
+`getDatasetAnalysisOptions()`. Unreviewed real AIS datasets return `null`, which
+acts as a safety gate against rendering synthetic anomaly claims on real vessel
+data.
+
+### Phase 9.2 Acceptance Checklist
+
+The checklist below records the Phase 9.2 checkpoint before the Phase 9.3 sample
+was added.
+
+- [x] Synthetic and real AIS sources have separate adapters.
+- [x] Real AIS adaptation reuses the Phase 9.1 normalization boundary.
+- [x] Dataset descriptors carry their own metadata and analysis profile.
+- [x] Newly adapted real AIS trajectories are always marked unreviewed.
+- [x] Real AIS trajectories do not inherit Point 6→7, the synthetic baseline, or
+      the synthetic threshold interpretation.
+- [x] Dataset selection is registry-based and configuration-driven.
+- [x] Missing dataset ids fall back explicitly to the controlled synthetic fixture.
+- [x] `main.js` no longer imports `samplePoints` or trajectory metadata directly.
+- [x] ArcGIS popups and the panel-first interaction model remain unchanged.
+- [x] No real AIS dataset has been downloaded, bundled, rendered, or validated.
+- [x] All 44 tests pass: 34 previous tests plus 10 dataset architecture tests.
+
+---
+
+
+## Phase 9.3: Static Real AIS Sample and Observation-Only Rendering
+
+Phase 9.3 integrates a small static sample of real AIS observations without
+attaching the Phase 8 anomaly narrative to them. The bundled sample contains
+four consecutive records for MMSI `210035000` from 5 July 2017 near Gothenburg.
+The MovingPandas ship-data example identifies the upstream data as AIS published
+by the Danish Maritime Authority.
+
+The source-shaped records and their provenance live together in
+`src/real-ais-sample.js`. The provenance object records:
+
+- upstream publisher and intermediary example
+- source date, geographic area, vessel identifier, and extraction scope
+- access date
+- an explicit timestamp interpretation note
+- an explicit statement that RouteSense has not verified the data license
+- an explicit statement that no anomaly validation has been performed
+
+The source table displays timestamps without a UTC offset. The sample adapter
+therefore opts into `ASSUME_UTC` for deterministic normalization and records
+that assumption in provenance. This is an integration decision, not a claim
+about the authoritative archive time basis; the original archive must be
+checked before research publication.
+
+### Two Presentation Modes
+
+`main.js` now selects the analysis path from the dataset descriptor:
+
+```text
+synthetic fixture
+  -> reviewed threshold-analysis model
+  -> Phase 8 anomaly and rule-evidence panels
+
+real AIS sample
+  -> unreviewed trajectory-display model
+  -> provenance, reported AIS values, and computed movement context only
+```
+
+The real-data display computes distance, estimated speed, bearing, and heading
+change from consecutive observations. These derived values are shown separately
+from AIS-reported SOG and COG. It creates no baseline, detection flags, threshold
+results, highlighted anomaly, or rule-evidence review.
+
+### Selecting the Real Sample
+
+The controlled synthetic fixture remains the default and fallback. The real
+sample can be selected without editing source control by adding a query parameter:
+
+```text
+?dataset=real-ais-gothenburg-2017
+```
+
+For example, after starting Vite locally, append that query to the development
+URL. An unknown dataset id still falls back explicitly to `synthetic-phase8`.
+Each dataset supplies its own map framing, so the synthetic route opens in
+Halifax and the real sample opens near Gothenburg.
+
+### Phase 9.3 Acceptance Checklist
+
+- [x] A small real AIS sample is stored as source-shaped static records.
+- [x] Publisher, intermediary, extraction scope, date, area, and access date are documented.
+- [x] Timestamp interpretation and unverified license status are explicit.
+- [x] The sample passes through the Phase 9.1 normalizer and Phase 9.2 adapter.
+- [x] The registry contains both real and synthetic datasets.
+- [x] The synthetic fixture remains the default and fallback.
+- [x] URL-based selection enables a reproducible real-data demonstration.
+- [x] Real AIS rendering uses a display-only model with no detection flags.
+- [x] Real point panels separate reported SOG/COG from computed segment metrics.
+- [x] Real-data panels state that no anomaly has been validated.
+- [x] Dataset-specific map framing supports both Halifax and Gothenburg.
+- [x] Vessel Point 6→7 remains the synthetic fixture's primary anomaly.
+- [x] Popups remain disabled and interaction remains panel-first.
+- [x] All 56 tests pass: 44 previous tests plus 12 Phase 9.3 tests.
+
+---
+
 ## Limitations
 
 - **Manually configured primary anomaly.** Segment 6→7 is selected in configuration;
   the threshold rule does not decide narrative priority.
-- **Synthetic AIS-like data.** The current trajectory is a controlled prototype,
-  not a real vessel record.
+- **Controlled anomaly evidence remains synthetic.** The Phase 8 anomaly and
+  threshold findings belong only to the eight-point Halifax fixture.
+- **Real sample is tiny and unreviewed.** The Gothenburg sample contains four
+  observations and is suitable for ingestion and interface integration checks,
+  not anomaly ground truth or broad movement analysis.
+- **Timestamp basis requires upstream verification.** The source display omits a
+  UTC offset; RouteSense records its deterministic UTC assumption explicitly.
+- **Dataset license not asserted.** Upstream terms must be verified before reuse
+  beyond this portfolio integration.
 - **Simple threshold rule.** The rule does not model vessel class, operational
   context, environmental conditions, or uncertainty.
 - **Single trajectory.** Multi-vessel comparison and clutter handling are not yet
@@ -322,7 +491,8 @@ has not yet been conducted.
 | 7.5 | Modular analysis pipeline and regression tests | ✅ Complete |
 | 8 | Rule evidence review, segment-specific explanation, and visual hierarchy | ✅ Complete |
 | 9.1 | AIS data contract, validation, normalization, and boundary tests | ✅ Complete |
-| 9.2 | Select and adapt a small static real AIS sample | 🔲 Planned |
+| 9.2 | Dataset adapters, registry, selection, and analysis-profile isolation | ✅ Complete |
+| 9.3 | Static real AIS sample, provenance, selection, and observation-only rendering | ✅ Complete |
 
 ---
 
@@ -344,16 +514,20 @@ routesense/
 ├── src/
 │   ├── ais.js        # Pure AIS field mapping, validation, and normalization
 │   ├── analysis.js   # Segment features, baseline, detection, evidence roles
-│   ├── config.js     # Map, rule, encoding, anomaly, and layout configuration
+│   ├── config.js     # Dataset, map, rule, encoding, anomaly, and layout configuration
 │   ├── data.js       # Synthetic AIS-like trajectory and route metadata
+│   ├── datasets.js   # Dataset adapters, registry, selection, and analysis profiles
 │   ├── geo.js        # Pure geometry, time, and statistics helpers
 │   ├── main.js       # ArcGIS composition root, graphics, and click routing
-│   ├── panels.js     # Pure data-to-HTML panel renderers
+│   ├── panels.js     # Reviewed and unreviewed data-to-HTML panel renderers
+│   ├── real-ais-sample.js # Static source records and provenance
 │   └── style.css     # Map, panel, hierarchy, and responsive styling
 ├── tests/
 │   ├── ais.test.js
 │   ├── analysis.test.js
-│   └── panels.test.js
+│   ├── datasets.test.js
+│   ├── panels.test.js
+│   └── real-ais.test.js
 ├── index.html
 ├── package.json
 └── README.md
@@ -379,3 +553,9 @@ npm run dev
   *IEEE Transactions on Visualization and Computer Graphics*, 15(6), 921–928.
 - Ware, C. (2004). *Information Visualization: Perception for Design* (2nd ed.).
   Morgan Kaufmann.
+- Danish Maritime Authority. *AIS data*. Historical AIS data access and description.
+  https://www.dma.dk/safety-at-sea/navigational-information/ais-data
+- MovingPandas. *Ship data analysis example*. AIS sample from 5 July 2017 near
+  Gothenburg. https://movingpandas.github.io/movingpandas-website/2-analysis-examples/ship-data.html
+- MovingPandas examples. *Example datasets*. Source description for `ais.gpkg`.
+  https://github.com/movingpandas/movingpandas-examples/blob/main/data/README.md

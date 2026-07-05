@@ -2,6 +2,14 @@
 // Every tunable value lives here. No other file defines constants
 // that change the system's behaviour or appearance.
 
+// Dataset selection is configuration-driven. The controlled Phase 8 fixture
+// remains the safe default and fallback; the real AIS sample can be requested
+// explicitly without inheriting the fixture's analysis assumptions.
+export const DATASET_SELECTION = {
+  activeDatasetId: "synthetic-phase8",
+  fallbackDatasetId: "synthetic-phase8"
+};
+
 // The map's initial view (Halifax, Nova Scotia).
 export const MAP_CONFIG = {
   basemap: "streets-navigation-vector",

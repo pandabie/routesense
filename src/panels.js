@@ -72,6 +72,112 @@ export function renderTrajectoryPanel(metadata) {
   `;
 }
 
+function formatOptionalNumber(value, suffix = "") {
+  return value == null ? "N/A" : `${formatNumber(value)}${suffix}`;
+}
+
+export function renderUnreviewedDatasetPanel(dataset, model) {
+  const provenance = dataset.provenance ?? {};
+  const sourceName = provenance.publisher ?? "Source not documented";
+  const intermediary = provenance.intermediary
+    ? `<p><strong>Sample path:</strong> ${provenance.intermediary}</p>`
+    : "";
+  const recordCount = dataset.ingestion?.stats?.outputCount ?? dataset.points.length;
+  const segmentCount = model?.segments?.length ?? Math.max(dataset.points.length - 1, 0);
+
+  return `
+    <h3>Real AIS Trajectory: Observation Only</h3>
+    <p><strong>Dataset:</strong> ${dataset.label}</p>
+    <p><strong>Route:</strong> ${dataset.metadata.routeName}</p>
+    <p><strong>Vessel ID:</strong> ${dataset.metadata.vesselId}</p>
+
+    <div class="panel-section">
+      <p><strong>Review status:</strong> Unreviewed</p>
+      <p>
+        This trajectory is displayed as real source data. RouteSense has not
+        assigned a baseline, threshold interpretation, or validated anomaly.
+      </p>
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Source:</strong> ${sourceName}</p>
+      ${intermediary}
+      <p><strong>Source date:</strong> ${provenance.sourceDate ?? "N/A"}</p>
+      <p><strong>Area:</strong> ${provenance.geographicArea ?? "N/A"}</p>
+      <p><strong>Observations:</strong> ${recordCount}</p>
+      <p><strong>Computed display segments:</strong> ${segmentCount}</p>
+    </div>
+
+    <p class="panel-note">
+      AIS-reported SOG and COG remain source measurements. Segment distance,
+      estimated speed, bearing, and heading change are calculated separately by
+      RouteSense from consecutive positions and timestamps.
+    </p>
+  `;
+}
+
+export function renderUnreviewedPointPanel(point, dataset) {
+  const reported = point.reported ?? {};
+  const status = reported.navigationalStatus?.text ??
+    reported.navigationalStatus?.code ?? "N/A";
+
+  return `
+    <h3>${point.name}</h3>
+    <p><strong>Dataset:</strong> ${dataset.label}</p>
+    <p><strong>Time:</strong> ${point.timestamp}</p>
+    <p><strong>Coordinates:</strong> ${formatNumber(point.latitude)}, ${formatNumber(point.longitude)}</p>
+    <p><strong>Trajectory order:</strong> ${point.order}</p>
+
+    <div class="panel-section">
+      <p><strong>AIS-reported measurements</strong></p>
+      <p>SOG: ${formatOptionalNumber(reported.sogKnots, " kn")}</p>
+      <p>COG: ${formatOptionalNumber(reported.cogDegrees, "°")}</p>
+      <p>True heading: ${formatOptionalNumber(reported.headingDegrees, "°")}</p>
+      <p>Navigational status: ${status}</p>
+    </div>
+
+    <p class="panel-note">
+      This is a source observation, not a point-level anomaly label. No anomaly
+      validation has been performed for this real AIS sample.
+    </p>
+  `;
+}
+
+export function renderUnreviewedSegmentPanel(segment, dataset) {
+  const headingContext = segment.headingChange == null
+    ? `<p class="panel-note compact-panel-note">
+         Heading change is unavailable for the first segment because there is
+         no preceding segment for comparison.
+       </p>`
+    : "";
+
+  return `
+    <h3>Real AIS Segment Context</h3>
+    <p><strong>Dataset:</strong> ${dataset.label}</p>
+    <p>
+      <strong>Selected segment:</strong>
+      Vessel Point ${segment.fromOrder} → Vessel Point ${segment.toOrder}
+    </p>
+
+    <div class="panel-section">
+      <p><strong>RouteSense-computed movement metrics</strong></p>
+      <p>Distance: ${formatOptionalNumber(segment.distanceKm, " km")}</p>
+      <p>Estimated speed: ${formatOptionalNumber(segment.estimatedSpeed, " km/h")}</p>
+      <p>Bearing: ${formatOptionalNumber(segment.heading, "°")}</p>
+      <p>Heading change: ${formatOptionalNumber(segment.headingChange, "°")}</p>
+      ${headingContext}
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Interpretation status:</strong> Observation only</p>
+      <p>
+        These values describe movement between consecutive AIS positions. No
+        baseline, threshold rule, or anomaly conclusion is attached.
+      </p>
+    </div>
+  `;
+}
+
 export function renderNormalSegmentPanel(
   segment,
   { thresholds, primaryAnomaly }

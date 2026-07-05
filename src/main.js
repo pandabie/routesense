@@ -4,13 +4,16 @@
 // Module layout:
 //   config.js   — every tunable value (map, anomaly, baseline, rule, encoding)
 //   geo.js      — pure geometry / time / statistics helpers
-//   data.js     — mock AIS-like trajectory points
+//   data.js     — synthetic Phase 8 fixture
+//   ais.js      — raw AIS validation and normalization boundary
+//   datasets.js — dataset adapters, registry, and selection
 //   analysis.js — pure derived-data pipeline (segments, baseline, detection)
 //   panels.js   — pure (data) -> HTML-string panel renderers
 //   main.js     — this file: map setup, graphics, click interaction
 //
-// All computed values come from one source of truth: the `model` object
-// returned by buildTrajectoryModel().
+// All computed values come from one source of truth: the selected `model`
+// object, either the reviewed threshold-analysis model or the unreviewed
+// trajectory-display model.
 
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
@@ -22,15 +25,21 @@ import "./style.css";
 import {
   MAP_CONFIG,
   UI_LAYOUT,
-  ANOMALY_SEGMENT,
-  NORMAL_BASELINE_RANGE,
-  THRESHOLD_RULE,
+  DATASET_SELECTION,
   ENCODING,
   toCssColor
 } from "./config.js";
 import { getArrowAngle, getMidpoint } from "./geo.js";
-import { trajectoryMetadata, samplePoints } from "./data.js";
-import { buildTrajectoryModel } from "./analysis.js";
+import {
+  DATASET_REGISTRY,
+  getDatasetAnalysisOptions,
+  resolveRequestedDatasetId,
+  selectDataset
+} from "./datasets.js";
+import {
+  buildTrajectoryDisplayModel,
+  buildTrajectoryModel
+} from "./analysis.js";
 import {
   renderDefaultPanel,
   renderPointPanel,
@@ -38,24 +47,49 @@ import {
   renderAnomalyPanel,
   renderRuleEvidenceSegmentPanel,
   renderNormalSegmentPanel,
-  renderDirectionPanel
+  renderDirectionPanel,
+  renderUnreviewedDatasetPanel,
+  renderUnreviewedPointPanel,
+  renderUnreviewedSegmentPanel
 } from "./panels.js";
 
 // ============================================================
 // DERIVED DATA
 // ============================================================
 
-const model = buildTrajectoryModel(samplePoints, {
-  anomalySegment: ANOMALY_SEGMENT,
-  baselineRange: NORMAL_BASELINE_RANGE,
-  thresholdRule: THRESHOLD_RULE
-});
+const requestedDatasetId = resolveRequestedDatasetId(
+  DATASET_SELECTION.activeDatasetId,
+  window.location.search
+);
+
+const datasetSelection = selectDataset(
+  DATASET_REGISTRY,
+  requestedDatasetId,
+  { fallbackId: DATASET_SELECTION.fallbackDatasetId }
+);
+
+if (datasetSelection.usedFallback) {
+  console.warn(
+    `RouteSense dataset "${datasetSelection.requestedId}" was unavailable; ` +
+    `using "${datasetSelection.selectedId}" instead.`
+  );
+}
+
+const activeDataset = datasetSelection.dataset;
+const trajectoryPoints = activeDataset.points;
+const trajectoryMetadata = activeDataset.metadata;
+const analysisOptions = getDatasetAnalysisOptions(activeDataset);
+const hasReviewedAnalysis = analysisOptions != null;
+const model = hasReviewedAnalysis
+  ? buildTrajectoryModel(trajectoryPoints, analysisOptions)
+  : buildTrajectoryDisplayModel(trajectoryPoints);
+const activeMapConfig = activeDataset.mapView ?? MAP_CONFIG;
 
 // ============================================================
 // MAP SETUP
 // ============================================================
 
-const map = new Map({ basemap: MAP_CONFIG.basemap });
+const map = new Map({ basemap: activeMapConfig.basemap ?? MAP_CONFIG.basemap });
 
 function getResponsiveViewPadding() {
   const useDesktopLayout = window.innerWidth >= UI_LAYOUT.desktopBreakpoint;
@@ -71,8 +105,8 @@ function getResponsiveViewPadding() {
 const view = new MapView({
   container: "viewDiv",
   map,
-  center: MAP_CONFIG.center,
-  zoom: MAP_CONFIG.zoom,
+  center: activeMapConfig.center ?? MAP_CONFIG.center,
+  zoom: activeMapConfig.zoom ?? MAP_CONFIG.zoom,
   padding: getResponsiveViewPadding()
 });
 
@@ -104,7 +138,7 @@ model.segments.forEach((segment) => {
         graphicType: "trajectory-segment",
         fromOrder: segment.fromOrder,
         toOrder: segment.toOrder,
-        flagged: segment.detection.flagged,
+        flagged: segment.detection?.flagged ?? null,
         isPrimaryAnomaly: segment.isPrimaryAnomaly
       }
     })
@@ -197,7 +231,7 @@ function createPointGraphic(point) {
       size: style.size,
       outline: { color: style.outlineColor, width: style.outlineWidth }
     },
-    attributes: { ...point, graphicType: "vessel-point" }
+    attributes: { graphicType: "vessel-point", order: point.order }
   });
 }
 
@@ -205,7 +239,7 @@ function renderPointGraphics() {
   vesselPointGraphics.forEach((g) => view.graphics.remove(g));
   vesselPointGraphics.length = 0;
 
-  samplePoints.forEach((point) => {
+  trajectoryPoints.forEach((point) => {
     const graphic = createPointGraphic(point);
     vesselPointGraphics.push(graphic);
     view.graphics.add(graphic);
@@ -213,7 +247,7 @@ function renderPointGraphics() {
 }
 
 // Static numeric labels (drawn once; not affected by selection).
-samplePoints.forEach((point) => {
+trajectoryPoints.forEach((point) => {
   view.graphics.add(
     new Graphic({
       geometry: { type: "point", longitude: point.longitude, latitude: point.latitude },
@@ -267,7 +301,13 @@ window.addEventListener("resize", applyResponsiveLayout);
 infoPanel.style.setProperty("--rs-normal-color", toCssColor(ENCODING.normalLine.color));
 infoPanel.style.setProperty("--rs-anomaly-color", toCssColor(ENCODING.anomalyLine.color));
 
-infoPanel.innerHTML = renderDefaultPanel();
+function renderActiveDatasetPanel() {
+  return hasReviewedAnalysis
+    ? renderDefaultPanel()
+    : renderUnreviewedDatasetPanel(activeDataset, model);
+}
+
+infoPanel.innerHTML = renderActiveDatasetPanel();
 
 // ============================================================
 // CLICK INTERACTION
@@ -292,6 +332,14 @@ function getTrajectorySegment(attributes) {
 
 const panelByGraphicType = {
   "trajectory-segment": (attributes) => {
+    const segment = getTrajectorySegment(attributes);
+
+    if (!hasReviewedAnalysis) {
+      return segment
+        ? renderUnreviewedSegmentPanel(segment, activeDataset)
+        : renderUnreviewedDatasetPanel(activeDataset, model);
+    }
+
     const reviewItem = getRuleEvidenceItem(attributes);
 
     if (reviewItem?.isPrimaryAnomaly) {
@@ -304,8 +352,6 @@ const panelByGraphicType = {
         primaryAnomaly: model.anomalyEvidence
       });
     }
-
-    const segment = getTrajectorySegment(attributes);
 
     return segment
       ? renderNormalSegmentPanel(segment, {
@@ -345,7 +391,7 @@ view.on("click", (event) => {
     if (!hit) {
       selectedPointOrder = null;
       renderPointGraphics();
-      infoPanel.innerHTML = renderDefaultPanel();
+      infoPanel.innerHTML = renderActiveDatasetPanel();
       return;
     }
 
@@ -355,7 +401,13 @@ view.on("click", (event) => {
     if (attributes.graphicType === "vessel-point") {
       selectedPointOrder = attributes.order;
       renderPointGraphics();
-      infoPanel.innerHTML = renderPointPanel(attributes, ANOMALY_SEGMENT);
+      const selectedPoint = trajectoryPoints.find(
+        (point) => point.order === attributes.order
+      ) ?? attributes;
+
+      infoPanel.innerHTML = hasReviewedAnalysis
+        ? renderPointPanel(selectedPoint, analysisOptions.anomalySegment)
+        : renderUnreviewedPointPanel(selectedPoint, activeDataset);
       return;
     }
 
@@ -363,6 +415,8 @@ view.on("click", (event) => {
     selectedPointOrder = null;
     renderPointGraphics();
     const renderPanel = panelByGraphicType[attributes.graphicType];
-    infoPanel.innerHTML = renderPanel ? renderPanel(attributes) : renderDefaultPanel();
+    infoPanel.innerHTML = renderPanel
+      ? renderPanel(attributes)
+      : renderActiveDatasetPanel();
   });
 });

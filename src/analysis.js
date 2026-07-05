@@ -13,7 +13,7 @@ import {
 } from "./geo.js";
 
 // One pass builds every segment with its computed trajectory features.
-export function buildSegments(points, anomalySegment) {
+export function buildSegments(points, anomalySegment = null) {
   const segments = [];
 
   for (let i = 0; i < points.length - 1; i++) {
@@ -35,6 +35,7 @@ export function buildSegments(points, anomalySegment) {
         ? getHeadingChange(previousSegment.heading, heading)
         : null,
       isPrimaryAnomaly:
+        anomalySegment != null &&
         start.order === anomalySegment.fromOrder &&
         end.order === anomalySegment.toOrder
     });
@@ -121,6 +122,7 @@ export function buildTrajectoryModel(points, { anomalySegment, baselineRange, th
   const flaggedSegments = segments.filter((s) => s.detection.flagged);
 
   return {
+    mode: "reviewed-threshold-analysis",
     segments,
     baseline,
     thresholds,
@@ -133,6 +135,26 @@ export function buildTrajectoryModel(points, { anomalySegment, baselineRange, th
     // Phase 8 presentation model. Keeping this derived value inside the
     // trajectory model preserves a single source of truth for panel rendering.
     ruleEvidenceItems: createRuleEvidenceReviewItems(flaggedSegments, anomalySegment)
+  };
+}
+
+
+// Display-only model for an unreviewed real trajectory. It computes geometric
+// movement context but deliberately does not attach detection flags, thresholds,
+// a baseline, or anomaly meaning.
+export function buildTrajectoryDisplayModel(points) {
+  return {
+    mode: "unreviewed-trajectory-display",
+    segments: buildSegments(points),
+    baseline: null,
+    thresholds: null,
+    anomalyEvidence: null,
+    anomalyDeviation: {
+      speedPercent: null,
+      headingChangeDifference: null
+    },
+    flaggedSegments: [],
+    ruleEvidenceItems: []
   };
 }
 
