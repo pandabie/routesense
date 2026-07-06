@@ -271,3 +271,106 @@ body,
   font-size: 11px;
   line-height: 1.4;
 }
+
+/* Dataset switcher — persistent panel header (Phase 10). */
+
+.info-panel__header {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(82, 96, 109, 0.18);
+}
+
+.dataset-switcher__title {
+  margin: 0 0 6px !important;
+  color: #627d98;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dataset-switcher__options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dataset-switcher__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(82, 96, 109, 0.22);
+  border-radius: 7px;
+  color: #1f2933;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dataset-switcher__option:hover {
+  border-color: rgba(40, 110, 180, 0.55);
+  background: rgba(40, 110, 180, 0.06);
+}
+
+.dataset-switcher__option--active {
+  border-color: rgba(40, 110, 180, 0.75);
+  background: rgba(40, 110, 180, 0.1);
+  cursor: default;
+}
+
+.dataset-switcher__label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+}
+
+.dataset-switcher__badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.dataset-switcher__badge--synthetic {
+  background: rgba(82, 96, 109, 0.12);
+  color: #3e4c59;
+}
+
+.dataset-switcher__badge--real-ais {
+  background: rgba(40, 110, 180, 0.14);
+  color: #1c4e80;
+}
+
+.dataset-switcher__active-marker {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  background: rgba(40, 110, 180, 0.85);
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.dataset-switcher__provenance {
+  margin: 8px 0 0 !important;
+  color: #52606d;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.dataset-switcher__note {
+  margin: 4px 0 0 !important;
+  color: #627d98;
+  font-size: 10px;
+  line-height: 1.4;
+}

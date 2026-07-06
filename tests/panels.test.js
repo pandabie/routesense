@@ -10,6 +10,7 @@ import {
 } from "../src/config.js";
 import {
   renderAnomalyPanel,
+  renderDatasetSwitcher,
   renderRuleEvidenceReview,
   renderRuleEvidenceSegmentPanel,
   renderNormalSegmentPanel
@@ -141,4 +142,47 @@ test("first normal segment shows heading change as unavailable rather than zero"
   assert.match(html, /A previous segment is required to calculate heading change/);
   assert.match(html, /N\/A does[\s\S]*not mean a 0° turn/);
   assert.match(html, /heading change unavailable/);
+});
+
+test("dataset switcher marks the active dataset and renders every option with its badge", () => {
+  const html = renderDatasetSwitcher(
+    [
+      {
+        id: "synthetic-phase8",
+        label: "Phase 8 synthetic fixture",
+        kind: "synthetic",
+        reviewStatus: "fixture",
+        badgeLabel: "Synthetic fixture",
+        isActive: true
+      },
+      {
+        id: "real-ais-gothenburg-2017",
+        label: "Gothenburg real AIS sample (2017)",
+        kind: "real-ais",
+        reviewStatus: "unreviewed",
+        badgeLabel: "Real AIS — unreviewed",
+        isActive: false
+      }
+    ],
+    "Danish Maritime Authority · Near Gothenburg, Sweden · 2017"
+  );
+
+  assert.match(html, /data-dataset-id="synthetic-phase8"/);
+  assert.match(html, /data-dataset-id="real-ais-gothenburg-2017"/);
+  assert.match(html, /Phase 8 synthetic fixture/);
+  assert.match(html, /Gothenburg real AIS sample \(2017\)/);
+  assert.match(html, /Synthetic fixture/);
+  assert.match(html, /Real AIS — unreviewed/);
+  assert.match(html, /dataset-switcher__badge--synthetic/);
+  assert.match(html, /dataset-switcher__badge--real-ais/);
+  assert.equal((html.match(/dataset-switcher__option--active/g) ?? []).length, 1);
+  assert.equal((html.match(/aria-pressed="true"/g) ?? []).length, 1);
+  assert.equal((html.match(/aria-pressed="false"/g) ?? []).length, 1);
+  assert.match(html, /Danish Maritime Authority · Near Gothenburg, Sweden · 2017/);
+  assert.match(html, /Switching datasets reloads the page/);
+});
+
+test("dataset switcher renders nothing without options", () => {
+  assert.equal(renderDatasetSwitcher([]), "");
+  assert.equal(renderDatasetSwitcher(undefined), "");
 });

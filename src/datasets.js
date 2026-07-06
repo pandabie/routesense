@@ -18,6 +18,10 @@ import {
 } from "./config.js";
 import { samplePoints, trajectoryMetadata } from "./data.js";
 import {
+  DEFAULT_MAX_COMPARISON_GAP_SECONDS,
+  MEASUREMENT_COMPARISON_BASIS
+} from "./measurement-review.js";
+import {
   GOTHENBURG_AIS_FIELD_MAP,
   GOTHENBURG_AIS_PROVENANCE,
   GOTHENBURG_AIS_RAW_RECORDS,
@@ -125,6 +129,7 @@ export function adaptSyntheticDataset({
     points,
     mapView: copyOptionalObject(mapView, "Synthetic dataset mapView"),
     provenance: copyOptionalObject(provenance, "Synthetic dataset provenance"),
+    measurementReviewProfile: null,
     ingestion: null,
     analysisProfile: createAnalysisProfile({
       reviewStatus: DATASET_REVIEW_STATUS.FIXTURE,
@@ -151,7 +156,8 @@ export function adaptRealAisDataset({
   timestampMode = AIS_TIMESTAMP_MODES.EXPLICIT_ZONE,
   minimumPoints = 2,
   mapView = null,
-  provenance = null
+  provenance = null,
+  measurementReviewProfile = null
 }) {
   const datasetId = requireNonEmptyString(id, "Real AIS dataset id");
   const datasetLabel = requireNonEmptyString(label, "Real AIS dataset label");
@@ -159,6 +165,11 @@ export function adaptRealAisDataset({
   if (metadata == null || typeof metadata !== "object" || Array.isArray(metadata)) {
     throw new TypeError("Real AIS dataset metadata must be an object.");
   }
+
+  const customMeasurementProfile = copyOptionalObject(
+    measurementReviewProfile,
+    "Real AIS dataset measurementReviewProfile"
+  );
 
   const normalized = normalizeAisTrajectory(rawRecords, {
     datasetId,
@@ -185,6 +196,14 @@ export function adaptRealAisDataset({
     points: normalized.points,
     mapView: copyOptionalObject(mapView, "Real AIS dataset mapView"),
     provenance: copyOptionalObject(provenance, "Real AIS dataset provenance"),
+    measurementReviewProfile: {
+      comparisonBasis:
+        customMeasurementProfile?.comparisonBasis ??
+        MEASUREMENT_COMPARISON_BASIS.DESTINATION_OBSERVATION,
+      maxGapSeconds:
+        customMeasurementProfile?.maxGapSeconds ??
+        DEFAULT_MAX_COMPARISON_GAP_SECONDS
+    },
     ingestion: {
       warnings: normalized.warnings,
       stats: normalized.stats
@@ -310,6 +329,71 @@ export function getDatasetAnalysisOptions(dataset) {
   };
 }
 
+/**
+ * Human-readable badge for the dataset switcher. The badge answers "what am I
+ * looking at" (controlled fixture vs. real source data) without implying any
+ * detection capability for real AIS.
+ */
+export function getDatasetBadgeLabel(dataset) {
+  if (dataset?.kind === DATASET_KINDS.SYNTHETIC) {
+    return "Synthetic fixture";
+  }
+
+  if (dataset?.kind === DATASET_KINDS.REAL_AIS) {
+    return dataset.analysisProfile?.reviewStatus === DATASET_REVIEW_STATUS.REVIEWED
+      ? "Real AIS — reviewed"
+      : "Real AIS — unreviewed";
+  }
+
+  return "Unclassified dataset";
+}
+
+/**
+ * Produce the dataset switcher's option list from a registry.
+ * Pure data out: the renderer decides markup, main.js decides behavior
+ * (updating `?dataset=` and reloading — never a runtime swap).
+ */
+export function buildDatasetSwitcherOptions(registry, activeDatasetId) {
+  if (!registry || typeof registry.get !== "function" || !Array.isArray(registry.ids)) {
+    throw new TypeError("registry must be created by createDatasetRegistry().");
+  }
+
+  return registry.ids.map((id) => {
+    const dataset = registry.get(id);
+
+    return {
+      id,
+      label: dataset.label,
+      kind: dataset.kind,
+      reviewStatus: dataset.analysisProfile?.reviewStatus ?? null,
+      badgeLabel: getDatasetBadgeLabel(dataset),
+      isActive: id === activeDatasetId
+    };
+  });
+}
+
+/**
+ * Short provenance line (source · region · year) for the active dataset,
+ * pulled from the descriptor. Descriptive only; missing fields stay explicit
+ * rather than being invented.
+ */
+export function summarizeDatasetProvenance(dataset) {
+  const provenance = dataset?.provenance;
+
+  if (!provenance) {
+    return "No provenance recorded for this dataset.";
+  }
+
+  const source = provenance.publisher ?? "Source not documented";
+  const region = provenance.geographicArea ?? "Region not documented";
+  const year =
+    typeof provenance.sourceDate === "string" && provenance.sourceDate.length >= 4
+      ? provenance.sourceDate.slice(0, 4)
+      : "Year not documented";
+
+  return `${source} · ${region} · ${year}`;
+}
+
 export const syntheticPhase8Dataset = adaptSyntheticDataset({
   id: SYNTHETIC_PHASE8_DATASET_ID,
   label: "Phase 8 synthetic fixture",
@@ -318,7 +402,12 @@ export const syntheticPhase8Dataset = adaptSyntheticDataset({
   anomalySegment: ANOMALY_SEGMENT,
   baselineRange: NORMAL_BASELINE_RANGE,
   thresholdRule: THRESHOLD_RULE,
-  mapView: MAP_CONFIG
+  mapView: MAP_CONFIG,
+  provenance: {
+    publisher: "RouteSense project (hand-authored fixture)",
+    geographicArea: "Halifax Harbour, Canada (fictional trajectory)",
+    sourceDate: "2026-04-28"
+  }
 });
 
 export const gothenburgRealAisDataset = adaptRealAisDataset({

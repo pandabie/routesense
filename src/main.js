@@ -32,15 +32,18 @@ import {
 import { getArrowAngle, getMidpoint } from "./geo.js";
 import {
   DATASET_REGISTRY,
+  buildDatasetSwitcherOptions,
   getDatasetAnalysisOptions,
   resolveRequestedDatasetId,
-  selectDataset
+  selectDataset,
+  summarizeDatasetProvenance
 } from "./datasets.js";
 import {
   buildTrajectoryDisplayModel,
   buildTrajectoryModel
 } from "./analysis.js";
 import {
+  renderDatasetSwitcher,
   renderDefaultPanel,
   renderPointPanel,
   renderTrajectoryPanel,
@@ -82,7 +85,9 @@ const analysisOptions = getDatasetAnalysisOptions(activeDataset);
 const hasReviewedAnalysis = analysisOptions != null;
 const model = hasReviewedAnalysis
   ? buildTrajectoryModel(trajectoryPoints, analysisOptions)
-  : buildTrajectoryDisplayModel(trajectoryPoints);
+  : buildTrajectoryDisplayModel(trajectoryPoints, {
+      measurementReviewProfile: activeDataset.measurementReviewProfile
+    });
 const activeMapConfig = activeDataset.mapView ?? MAP_CONFIG;
 
 // ============================================================
@@ -290,6 +295,37 @@ if (!viewContainer) {
 
 viewContainer.append(infoPanel);
 
+// The panel is split into a persistent header (dataset switcher, rendered
+// once at boot) and a content region (re-rendered on every interaction).
+// Dataset switching is a full page reload via `?dataset=`, matching the
+// boot-once architecture — no runtime teardown or rebuild.
+const panelHeader = document.createElement("div");
+panelHeader.className = "info-panel__header";
+
+const panelContent = document.createElement("div");
+panelContent.className = "info-panel__content";
+
+infoPanel.append(panelHeader, panelContent);
+
+panelHeader.innerHTML = renderDatasetSwitcher(
+  buildDatasetSwitcherOptions(DATASET_REGISTRY, activeDataset.id),
+  summarizeDatasetProvenance(activeDataset)
+);
+
+panelHeader.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-dataset-id]");
+
+  if (!option) return;
+
+  const requestedId = option.dataset.datasetId;
+
+  if (requestedId === activeDataset.id) return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("dataset", requestedId);
+  window.location.assign(url.toString());
+});
+
 function applyResponsiveLayout() {
   view.padding = getResponsiveViewPadding();
 }
@@ -307,7 +343,7 @@ function renderActiveDatasetPanel() {
     : renderUnreviewedDatasetPanel(activeDataset, model);
 }
 
-infoPanel.innerHTML = renderActiveDatasetPanel();
+panelContent.innerHTML = renderActiveDatasetPanel();
 
 // ============================================================
 // CLICK INTERACTION
@@ -391,7 +427,7 @@ view.on("click", (event) => {
     if (!hit) {
       selectedPointOrder = null;
       renderPointGraphics();
-      infoPanel.innerHTML = renderActiveDatasetPanel();
+      panelContent.innerHTML = renderActiveDatasetPanel();
       return;
     }
 
@@ -405,7 +441,7 @@ view.on("click", (event) => {
         (point) => point.order === attributes.order
       ) ?? attributes;
 
-      infoPanel.innerHTML = hasReviewedAnalysis
+      panelContent.innerHTML = hasReviewedAnalysis
         ? renderPointPanel(selectedPoint, analysisOptions.anomalySegment)
         : renderUnreviewedPointPanel(selectedPoint, activeDataset);
       return;
@@ -415,7 +451,7 @@ view.on("click", (event) => {
     selectedPointOrder = null;
     renderPointGraphics();
     const renderPanel = panelByGraphicType[attributes.graphicType];
-    infoPanel.innerHTML = renderPanel
+    panelContent.innerHTML = renderPanel
       ? renderPanel(attributes)
       : renderActiveDatasetPanel();
   });

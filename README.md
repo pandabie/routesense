@@ -30,7 +30,9 @@ primary anomalies.
 
 The project uses a transparent rule-based prototype only on the controlled
 synthetic fixture. The real AIS sample is rendered in observation-only mode: it
-has no inherited baseline, threshold interpretation, or validated anomaly. The
+has no inherited baseline, threshold interpretation, or validated anomaly. For
+each real-data segment, RouteSense now presents AIS-reported SOG/COG beside
+interval-derived speed and bearing as a descriptive measurement comparison. The
 project does not use machine learning, black-box inference, or live AIS streaming.
 
 ---
@@ -449,6 +451,87 @@ Halifax and the real sample opens near Gothenburg.
 
 ---
 
+## Phase 9.4: AIS Measurement Review and Data-Quality Evidence
+
+Phase 9.4 makes the distinction introduced in Phase 9.1 visible in the
+interface. AIS-reported measurements remain source observations, while
+RouteSense-derived metrics remain calculations from coordinates and timestamps.
+The two categories are displayed together without converting their difference
+into an anomaly claim.
+
+The pure `src/measurement-review.js` module provides:
+
+- knots-to-km/h conversion using `1 kn = 1.852 km/h`
+- circular direction difference normalized to 0–180 degrees
+- observation-interval calculation
+- explicit comparison states for comparable values, missing reported values,
+  excessive timestamp gaps, and insufficient evidence
+- a segment-level comparison object with no ArcGIS or DOM dependency
+
+### Comparison Basis
+
+For a segment from Point *i* to Point *i + 1*, RouteSense compares the
+interval-derived metrics with SOG and COG reported at the destination observation
+(Point *i + 1*). The basis is stored explicitly in the dataset's
+`measurementReviewProfile` rather than hidden in panel code. The default maximum
+comparison interval is 300 seconds.
+
+```js
+measurementReviewProfile: {
+  comparisonBasis: "destination-observation",
+  maxGapSeconds: 300
+}
+```
+
+This is not a claim that the destination AIS value measures the complete
+segment. SOG and COG may represent a near-instantaneous vessel state, while
+RouteSense speed and bearing summarize movement between two observations. The
+panel therefore labels the result **Descriptive measurement comparison** and
+states that the difference is not an error score, validation result, or anomaly
+label.
+
+### Real Segment Panel
+
+Selecting a real AIS segment now displays four layers:
+
+1. AIS-reported SOG and COG at the destination observation
+2. RouteSense-computed distance, estimated speed, bearing, and heading change
+3. speed difference in km/h and circular direction difference in degrees
+4. the observation-only interpretation boundary and provenance limitations
+
+For the first Gothenburg segment, the interface shows approximately:
+
+| Evidence | Value |
+|---|---:|
+| AIS-reported SOG at Point 2 | 9.50 kn / 17.59 km/h |
+| RouteSense estimated speed | 18.23 km/h |
+| Computed − reported speed | +0.64 km/h |
+| AIS-reported COG at Point 2 | 58.90° |
+| RouteSense bearing | 53.90° |
+| Circular direction difference | 5.00° |
+
+These values are useful for inspecting consistency and representation, but the
+four-point sample remains too small and insufficiently verified for anomaly
+validation or general data-quality conclusions.
+
+### Phase 9.4 Acceptance Checklist
+
+- [x] Reported SOG is converted from knots without overwriting the source value.
+- [x] Circular direction difference handles the 359°/1° boundary correctly.
+- [x] Comparison assumptions travel with the real dataset descriptor.
+- [x] Missing reported values remain distinct from insufficient computed evidence.
+- [x] Excessive timestamp gaps suppress numeric comparison differences.
+- [x] Every real display segment receives a descriptive measurement-review object.
+- [x] Real segment panels show reported and computed values side by side.
+- [x] The interface states that differences are not error, validation, or anomaly scores.
+- [x] Timestamp and license limitations remain visible in the dataset overview.
+- [x] Synthetic analysis does not receive the real-data measurement-review model.
+- [x] Vessel Point 6→7 remains the synthetic primary anomaly.
+- [x] Popups remain disabled and interaction remains panel-first.
+- [x] All 70 tests pass: 56 previous tests plus 14 Phase 9.4 tests.
+
+---
+
 ## Limitations
 
 - **Manually configured primary anomaly.** Segment 6→7 is selected in configuration;
@@ -456,8 +539,12 @@ Halifax and the real sample opens near Gothenburg.
 - **Controlled anomaly evidence remains synthetic.** The Phase 8 anomaly and
   threshold findings belong only to the eight-point Halifax fixture.
 - **Real sample is tiny and unreviewed.** The Gothenburg sample contains four
-  observations and is suitable for ingestion and interface integration checks,
-  not anomaly ground truth or broad movement analysis.
+  observations and is suitable for ingestion, interface integration, and
+  descriptive measurement comparison, not anomaly ground truth or broad
+  movement analysis.
+- **Reported and computed values have different temporal semantics.** AIS SOG/COG
+  may describe a near-instantaneous state, while RouteSense metrics summarize an
+  interval. Their difference must not be interpreted as sensor error by default.
 - **Timestamp basis requires upstream verification.** The source display omits a
   UTC offset; RouteSense records its deterministic UTC assumption explicitly.
 - **Dataset license not asserted.** Upstream terms must be verified before reuse
@@ -493,6 +580,7 @@ has not yet been conducted.
 | 9.1 | AIS data contract, validation, normalization, and boundary tests | ✅ Complete |
 | 9.2 | Dataset adapters, registry, selection, and analysis-profile isolation | ✅ Complete |
 | 9.3 | Static real AIS sample, provenance, selection, and observation-only rendering | ✅ Complete |
+| 9.4 | Reported-versus-computed measurement review and data-quality states | ✅ Complete |
 
 ---
 
@@ -518,6 +606,7 @@ routesense/
 │   ├── data.js       # Synthetic AIS-like trajectory and route metadata
 │   ├── datasets.js   # Dataset adapters, registry, selection, and analysis profiles
 │   ├── geo.js        # Pure geometry, time, and statistics helpers
+│   ├── measurement-review.js # Reported-versus-computed descriptive comparison
 │   ├── main.js       # ArcGIS composition root, graphics, and click routing
 │   ├── panels.js     # Reviewed and unreviewed data-to-HTML panel renderers
 │   ├── real-ais-sample.js # Static source records and provenance
@@ -526,6 +615,7 @@ routesense/
 │   ├── ais.test.js
 │   ├── analysis.test.js
 │   ├── datasets.test.js
+│   ├── measurement-review.test.js
 │   ├── panels.test.js
 │   └── real-ais.test.js
 ├── index.html

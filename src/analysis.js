@@ -11,6 +11,7 @@ import {
   average,
   percentDifference
 } from "./geo.js";
+import { compareReportedAndComputedMetrics } from "./measurement-review.js";
 
 // One pass builds every segment with its computed trajectory features.
 export function buildSegments(points, anomalySegment = null) {
@@ -142,10 +143,21 @@ export function buildTrajectoryModel(points, { anomalySegment, baselineRange, th
 // Display-only model for an unreviewed real trajectory. It computes geometric
 // movement context but deliberately does not attach detection flags, thresholds,
 // a baseline, or anomaly meaning.
-export function buildTrajectoryDisplayModel(points) {
+export function buildTrajectoryDisplayModel(
+  points,
+  { measurementReviewProfile = {} } = {}
+) {
+  const segments = buildSegments(points).map((segment) => ({
+    ...segment,
+    measurementReview: compareReportedAndComputedMetrics(
+      segment,
+      measurementReviewProfile ?? {}
+    )
+  }));
+
   return {
     mode: "unreviewed-trajectory-display",
-    segments: buildSegments(points),
+    segments,
     baseline: null,
     thresholds: null,
     anomalyEvidence: null,

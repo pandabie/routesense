@@ -4,6 +4,7 @@
 // clean boundary between the data model and its presentation.
 
 import { formatNumber } from "./geo.js";
+import { MEASUREMENT_COMPARISON_STATUS } from "./measurement-review.js";
 
 const legendMarkup = `
   <ul>
@@ -11,6 +12,51 @@ const legendMarkup = `
     <li><span class="legend-line anomaly-line"></span> Anomalous deviation</li>
   </ul>
 `;
+
+export function renderDatasetSwitcher(options = [], provenanceSummary = "") {
+  if (!Array.isArray(options) || options.length === 0) {
+    return "";
+  }
+
+  const optionsMarkup = options
+    .map((option) => {
+      const activeClass = option.isActive ? " dataset-switcher__option--active" : "";
+      const activeMarker = option.isActive
+        ? `<span class="dataset-switcher__active-marker">Active</span>`
+        : "";
+
+      return `
+        <button
+          type="button"
+          class="dataset-switcher__option${activeClass}"
+          data-dataset-id="${option.id}"
+          aria-pressed="${option.isActive}"
+        >
+          <span class="dataset-switcher__label">${option.label}</span>
+          <span class="dataset-switcher__badge dataset-switcher__badge--${option.kind}">
+            ${option.badgeLabel}
+          </span>
+          ${activeMarker}
+        </button>
+      `;
+    })
+    .join("");
+
+  const provenanceMarkup = provenanceSummary
+    ? `<p class="dataset-switcher__provenance">${provenanceSummary}</p>`
+    : "";
+
+  return `
+    <div class="dataset-switcher">
+      <p class="dataset-switcher__title">Dataset</p>
+      <div class="dataset-switcher__options" role="group" aria-label="Dataset selection">
+        ${optionsMarkup}
+      </div>
+      ${provenanceMarkup}
+      <p class="dataset-switcher__note">Switching datasets reloads the page.</p>
+    </div>
+  `;
+}
 
 export function renderDefaultPanel() {
   return `
@@ -76,6 +122,25 @@ function formatOptionalNumber(value, suffix = "") {
   return value == null ? "N/A" : `${formatNumber(value)}${suffix}`;
 }
 
+function formatSignedNumber(value, suffix = "") {
+  if (value == null) return "N/A";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${formatNumber(value)}${suffix}`;
+}
+
+function getComparisonStatusLabel(status) {
+  switch (status) {
+    case MEASUREMENT_COMPARISON_STATUS.COMPARABLE:
+      return "Comparable";
+    case MEASUREMENT_COMPARISON_STATUS.REPORTED_VALUE_UNAVAILABLE:
+      return "Reported value unavailable";
+    case MEASUREMENT_COMPARISON_STATUS.TIMESTAMP_GAP_TOO_LARGE:
+      return "Timestamp gap too large";
+    default:
+      return "Insufficient evidence";
+  }
+}
+
 export function renderUnreviewedDatasetPanel(dataset, model) {
   const provenance = dataset.provenance ?? {};
   const sourceName = provenance.publisher ?? "Source not documented";
@@ -106,12 +171,15 @@ export function renderUnreviewedDatasetPanel(dataset, model) {
       <p><strong>Area:</strong> ${provenance.geographicArea ?? "N/A"}</p>
       <p><strong>Observations:</strong> ${recordCount}</p>
       <p><strong>Computed display segments:</strong> ${segmentCount}</p>
+      <p><strong>Timestamp basis:</strong> ${provenance.timestampInterpretation ?? "Not documented"}</p>
+      <p><strong>License note:</strong> ${provenance.licenseStatus ?? "Not documented"}</p>
     </div>
 
     <p class="panel-note">
       AIS-reported SOG and COG remain source measurements. Segment distance,
       estimated speed, bearing, and heading change are calculated separately by
-      RouteSense from consecutive positions and timestamps.
+      RouteSense from consecutive positions and timestamps. Select a segment to
+      inspect a descriptive measurement comparison.
     </p>
   `;
 }
@@ -151,8 +219,13 @@ export function renderUnreviewedSegmentPanel(segment, dataset) {
        </p>`
     : "";
 
+  const review = segment.measurementReview ?? {};
+  const speedReview = review.speed ?? {};
+  const directionReview = review.direction ?? {};
+  const reportedPointOrder = review.basis?.pointOrder ?? segment.toOrder;
+
   return `
-    <h3>Real AIS Segment Context</h3>
+    <h3>Real AIS Segment Context: Measurement Review</h3>
     <p><strong>Dataset:</strong> ${dataset.label}</p>
     <p>
       <strong>Selected segment:</strong>
@@ -160,19 +233,40 @@ export function renderUnreviewedSegmentPanel(segment, dataset) {
     </p>
 
     <div class="panel-section">
-      <p><strong>RouteSense-computed movement metrics</strong></p>
+      <p><strong>AIS-reported measurements at Point ${reportedPointOrder}</strong></p>
+      <p>SOG: ${formatOptionalNumber(speedReview.reportedKnots, " kn")}
+         (${formatOptionalNumber(speedReview.reportedKmh, " km/h")})</p>
+      <p>COG: ${formatOptionalNumber(directionReview.reportedCogDegrees, "°")}</p>
+      <p>Observation time: ${review.basis?.timestamp ?? "N/A"}</p>
+    </div>
+
+    <div class="panel-section">
+      <p><strong>RouteSense-computed movement metrics (interval-derived)</strong></p>
       <p>Distance: ${formatOptionalNumber(segment.distanceKm, " km")}</p>
       <p>Estimated speed: ${formatOptionalNumber(segment.estimatedSpeed, " km/h")}</p>
       <p>Bearing: ${formatOptionalNumber(segment.heading, "°")}</p>
       <p>Heading change: ${formatOptionalNumber(segment.headingChange, "°")}</p>
+      <p>Observation interval: ${formatOptionalNumber(review.intervalSeconds, " s")}</p>
       ${headingContext}
+    </div>
+
+    <div class="panel-section">
+      <p><strong>Descriptive measurement comparison</strong></p>
+      <p>Speed status: ${getComparisonStatusLabel(speedReview.status)}</p>
+      <p>Speed difference (computed − reported):
+         ${formatSignedNumber(speedReview.differenceKmh, " km/h")}</p>
+      <p>Direction status: ${getComparisonStatusLabel(directionReview.status)}</p>
+      <p>Direction difference (circular):
+         ${formatOptionalNumber(directionReview.differenceDegrees, "°")}</p>
     </div>
 
     <div class="panel-section">
       <p><strong>Interpretation status:</strong> Observation only</p>
       <p>
-        These values describe movement between consecutive AIS positions. No
-        baseline, threshold rule, or anomaly conclusion is attached.
+        The reported values come from the destination observation, while the
+        computed values summarize movement across the complete segment. Their
+        difference is not an error score, validation result, or anomaly label.
+        No baseline, threshold rule, or anomaly conclusion is attached.
       </p>
     </div>
   `;
