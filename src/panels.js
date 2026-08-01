@@ -5,6 +5,11 @@
 
 import { formatNumber } from "./geo.js";
 import { MEASUREMENT_COMPARISON_STATUS } from "./measurement-review.js";
+import {
+  ANOMALY_CONTAINMENT,
+  BASELINE_OVERLAP,
+  SELECTION_TIER
+} from "./selection.js";
 
 const legendMarkup = `
   <ul>
@@ -475,6 +480,345 @@ export function renderDirectionPanel(attributes) {
       Direction cues help users read the trajectory as an ordered movement
       pattern rather than a disconnected set of points.
     </p>
+  `;
+}
+
+// ============================================================
+// GROUP SELECTION (drag-box experiment)
+//
+// The panel changes shape with selection size instead of forcing every
+// selection through one aggregate layout. One and two-point selections
+// delegate to the existing single-item renderers — a "group of one" has no
+// extra information to show, and min/mean/max over a single segment is noise.
+// ============================================================
+
+function pluralize(count, singular) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+function formatDurationHours(hours) {
+  if (hours == null || !Number.isFinite(hours) || hours <= 0) return "N/A";
+
+  const totalMinutes = Math.round(hours * 60);
+
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+
+  const wholeHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return minutes === 0 ? `${wholeHours} h` : `${wholeHours} h ${minutes} min`;
+}
+
+// Ranges collapse when the two ends round to the same displayed value: showing
+// "6.58 – 6.58" implies a spread the reader cannot see.
+function formatPlainRange(rangeValue, suffix = "") {
+  if (rangeValue == null) return "N/A";
+
+  const min = formatNumber(rangeValue.min);
+  const max = formatNumber(rangeValue.max);
+
+  return min === max ? `${min}${suffix}` : `${min} – ${max}${suffix}`;
+}
+
+function formatSignedRange(rangeValue, suffix = "") {
+  if (rangeValue == null) return "N/A";
+
+  const min = formatSignedNumber(rangeValue.min);
+  const max = formatSignedNumber(rangeValue.max);
+
+  return min === max ? `${min}${suffix}` : `${min} to ${max}${suffix}`;
+}
+
+function formatStatusCounts(counts = {}) {
+  const entries = Object.entries(counts);
+
+  if (entries.length === 0) return "N/A";
+
+  return entries
+    .map(([status, count]) => `${count} ${getComparisonStatusLabel(status).toLowerCase()}`)
+    .join(", ");
+}
+
+function renderSelectionHeader(summary) {
+  const runsNote = summary.isContiguous
+    ? ""
+    : ` · ${pluralize(summary.runs.length, "run")}, non-contiguous`;
+
+  return `
+    <div class="group-selection__header">
+      <h3>Group Selection</h3>
+      <p class="group-selection__counts">
+        ${pluralize(summary.pointCount, "point")} ·
+        ${pluralize(summary.interiorSegments.length, "segment")}${runsNote}
+      </p>
+      <p class="group-selection__runs"><strong>Points:</strong> ${summary.runsLabel}</p>
+    </div>
+  `;
+}
+
+function renderBoundarySegments(summary) {
+  if (summary.boundarySegments.length === 0) return "";
+
+  const labels = summary.boundarySegments
+    .map((segment) => `${segment.fromOrder} → ${segment.toOrder}`)
+    .join(", ");
+
+  return `
+    <p class="panel-note compact-panel-note">
+      <strong>Boundary segments (excluded):</strong> ${labels}.
+      A segment is included only when both of its endpoints are selected.
+    </p>
+  `;
+}
+
+function renderMovementAggregate(summary) {
+  const movement = summary.movement;
+  const coverage = movement.headingChangeCoverage;
+
+  const spanMarkup = summary.span
+    ? `<p>Span: Point ${summary.span.start.order} (${summary.span.start.timestamp})
+         → Point ${summary.span.end.order} (${summary.span.end.timestamp})</p>`
+    : "";
+
+  const contiguityNote = summary.isContiguous
+    ? ""
+    : `<p class="panel-note compact-panel-note">
+         This selection is not contiguous, so totals cover only the selected
+         segments and not the full span between first and last point.
+       </p>`;
+
+  return `
+    <div class="panel-section">
+      <p><strong>Aggregate movement (RouteSense-computed)</strong></p>
+      ${spanMarkup}
+      <p>Covered duration: ${formatDurationHours(movement.totalDurationHours)}</p>
+      <p>Total distance: ${formatOptionalNumber(movement.totalDistanceKm, " km")}</p>
+      <p>Overall estimated speed:
+         ${formatOptionalNumber(movement.overallSpeedKmh, " km/h")}
+         <span class="group-selection__formula">(total distance ÷ total covered time)</span></p>
+      <p>Per-segment speed range: ${formatPlainRange(movement.speedRangeKmh, " km/h")}</p>
+      <p>Heading change: available for ${coverage.available} of ${pluralize(coverage.total, "segment")}</p>
+      ${contiguityNote}
+      <p class="panel-note compact-panel-note">
+        Heading change is measured against the preceding segment, which may lie
+        outside this selection.
+      </p>
+    </div>
+  `;
+}
+
+function describeAnomalyContainmentText(primaryAnomaly) {
+  switch (primaryAnomaly.status) {
+    case ANOMALY_CONTAINMENT.FULL:
+      return `Primary anomaly ${primaryAnomaly.label}: fully in selection`;
+    case ANOMALY_CONTAINMENT.PARTIAL:
+      return `Primary anomaly ${primaryAnomaly.label}: partially in selection ` +
+        `(Point ${primaryAnomaly.selectedEndpoints.join(", ")} only)`;
+    case ANOMALY_CONTAINMENT.ABSENT:
+      return `Primary anomaly ${primaryAnomaly.label}: not in selection`;
+    default:
+      return "";
+  }
+}
+
+function describeBaselineOverlapText(baseline) {
+  switch (baseline.status) {
+    case BASELINE_OVERLAP.COMPLETE:
+      return `Baseline range ${baseline.label}: fully covered by this selection, ` +
+        `so these aggregates describe the baseline itself`;
+    case BASELINE_OVERLAP.PARTIAL:
+      return `Baseline range ${baseline.label}: ${baseline.selectedInRange} of ` +
+        `${baseline.rangeSize} baseline points selected`;
+    case BASELINE_OVERLAP.NONE:
+      return `Baseline range ${baseline.label}: not overlapping`;
+    default:
+      return "";
+  }
+}
+
+function getRuleItemTriggerLabel(item) {
+  if (!item.flagged) return "Not flagged";
+  if (item.triggers.speed && item.triggers.heading) return "Flagged: speed + heading";
+  if (item.triggers.speed) return "Flagged: speed";
+  if (item.triggers.heading) return "Flagged: heading";
+  return "Flagged";
+}
+
+function renderRuleComparisonItems(items) {
+  if (items.length === 0) return "";
+
+  return `
+    <ol class="group-comparison-list">
+      ${items
+        .map((item) => {
+          const roleLabel = item.isPrimaryAnomaly
+            ? "Narrative anomaly"
+            : item.flagged
+              ? "Rule only"
+              : "Not flagged";
+
+          return `
+            <li
+              class="group-comparison-item group-comparison-item--${
+                item.isPrimaryAnomaly ? "narrative" : item.flagged ? "rule-only" : "quiet"
+              }"
+              data-segment-key="${item.fromOrder}-${item.toOrder}"
+            >
+              <span class="group-comparison-item__label">${item.label}</span>
+              <span class="group-comparison-item__role">${roleLabel}</span>
+              <span class="group-comparison-item__trigger">${getRuleItemTriggerLabel(item)}</span>
+            </li>
+          `;
+        })
+        .join("")}
+    </ol>
+  `;
+}
+
+function renderRuleNarrativeComparison(summary) {
+  const rule = summary.rule;
+
+  if (rule == null) return "";
+
+  const mismatchNote = rule.hasRuleNarrativeMismatch
+    ? `<p class="group-comparison__mismatch">
+         The prototype rule flags more segments than the RouteSense narrative
+         treats as anomalous. This over-flagging is a documented finding of the
+         project, not a defect being corrected here.
+       </p>`
+    : "";
+
+  const anomalyText = describeAnomalyContainmentText(rule.primaryAnomaly);
+  const baselineText = describeBaselineOverlapText(rule.baseline);
+
+  return `
+    <div class="panel-section group-comparison">
+      <div class="group-comparison__header">
+        <h3>Rule vs. narrative</h3>
+        <p class="group-comparison__summary">
+          ${rule.flaggedCount} of ${pluralize(rule.segmentCount, "segment")} flagged ·
+          ${rule.narrativeAnomalyCount} narrative anomaly
+        </p>
+      </div>
+      ${mismatchNote}
+      ${anomalyText ? `<p>${anomalyText}</p>` : ""}
+      ${baselineText ? `<p>${baselineText}</p>` : ""}
+      ${renderRuleComparisonItems(rule.items)}
+    </div>
+  `;
+}
+
+function renderMeasurementComparisonAggregate(summary) {
+  const measurement = summary.measurement;
+
+  if (measurement == null) {
+    return `
+      <p class="panel-note compact-panel-note">
+        No complete segment is inside this selection, so there is no
+        measurement comparison to describe.
+      </p>
+    `;
+  }
+
+  return `
+    <div class="panel-section">
+      <p><strong>Descriptive measurement comparison</strong>
+         (${pluralize(measurement.segmentCount, "segment")})</p>
+      <p>Speed: ${formatStatusCounts(measurement.speedStatusCounts)}</p>
+      <p>Direction: ${formatStatusCounts(measurement.directionStatusCounts)}</p>
+      <p>Speed difference (computed − reported):
+         ${formatSignedRange(measurement.speedDifferenceRangeKmh, " km/h")}</p>
+      <p>Direction difference (circular):
+         ${formatPlainRange(measurement.directionDifferenceRangeDegrees, "°")}</p>
+      <p class="panel-note compact-panel-note">
+        Reported as ranges and status counts across the selection. These are not
+        error scores, validation results, or anomaly labels, and no baseline or
+        threshold rule is attached to this dataset.
+      </p>
+    </div>
+  `;
+}
+
+// Two adjacent points carry exactly the information of one clicked segment, so
+// the existing segment renderer is reused rather than duplicated.
+function renderDelegatedSegmentPanel(segment, { model, dataset }) {
+  if (model?.thresholds == null) {
+    return renderUnreviewedSegmentPanel(segment, dataset);
+  }
+
+  const context = {
+    thresholds: model.thresholds,
+    primaryAnomaly: model.anomalyEvidence
+  };
+
+  const evidenceItem = (model.ruleEvidenceItems ?? []).find(
+    (item) =>
+      item.fromOrder === segment.fromOrder && item.toOrder === segment.toOrder
+  );
+
+  return evidenceItem
+    ? renderRuleEvidenceSegmentPanel(evidenceItem, context)
+    : renderNormalSegmentPanel(segment, context);
+}
+
+export function renderEmptySelectionPanel() {
+  return `
+    <h3>Group Selection</h3>
+    <p>No vessel points fell inside the drag box.</p>
+    <p class="panel-note">
+      Shift-drag across the map to select a stretch of the trajectory, or click
+      the empty map to return to the dataset overview.
+    </p>
+  `;
+}
+
+export function renderGroupSelectionPanel(
+  summary,
+  { model = {}, dataset = null, anomalySegment = null } = {}
+) {
+  if (summary == null || summary.tier === SELECTION_TIER.EMPTY) {
+    return renderEmptySelectionPanel();
+  }
+
+  const header = renderSelectionHeader(summary);
+  const hasReviewedAnalysis = summary.rule != null;
+
+  if (summary.tier === SELECTION_TIER.SINGLE_POINT) {
+    const point = summary.points[0];
+
+    const pointPanel = hasReviewedAnalysis && anomalySegment
+      ? renderPointPanel(point, anomalySegment)
+      : renderUnreviewedPointPanel(point, dataset ?? {});
+
+    return `${header}${pointPanel}${renderBoundarySegments(summary)}`;
+  }
+
+  if (summary.tier === SELECTION_TIER.SINGLE_SEGMENT) {
+    const segmentPanel = renderDelegatedSegmentPanel(
+      summary.interiorSegments[0],
+      { model, dataset }
+    );
+
+    return `${header}${segmentPanel}${renderBoundarySegments(summary)}`;
+  }
+
+  const comparison = hasReviewedAnalysis
+    ? renderRuleNarrativeComparison(summary)
+    : renderMeasurementComparisonAggregate(summary);
+
+  const emptyInteriorNote = summary.interiorSegments.length === 0
+    ? `<p class="panel-note">
+         The selected points are not consecutive, so no complete segment lies
+         inside the selection.
+       </p>`
+    : renderMovementAggregate(summary);
+
+  return `
+    ${header}
+    ${emptyInteriorNote}
+    ${summary.interiorSegments.length > 0 ? comparison : ""}
+    ${renderBoundarySegments(summary)}
+    <p class="panel-note">Click the empty map to clear this selection.</p>
   `;
 }
 

@@ -50,6 +50,18 @@ export const THRESHOLD_RULE = {
   headingChangeDegrees: 45
 };
 
+// Group (drag-box) selection experiment.
+// Opt-in at boot via `?select=group`, matching the dataset-selection boundary:
+// resolved once, never toggled at runtime. With the flag absent the map keeps
+// its v1 single-click behaviour exactly.
+export const GROUP_SELECTION = {
+  queryParam: "select",
+  enabledValue: "group",
+  // Below this drag distance the gesture is treated as a click, so selecting a
+  // single point never turns into an accidental one-point box.
+  minimumDragPixels: 5
+};
+
 // Visual encoding tokens shared between map symbols and the legend.
 // main.js injects the colors into CSS custom properties so the legend
 // in style.css can never drift out of sync with the map again.
@@ -63,6 +75,16 @@ export const ENCODING = {
     size: "18px",
     outlineColor: [255, 255, 255, 1],
     outlineWidth: 3
+  },
+  // The drag box borrows the selected-point hue so selection reads as one
+  // visual language. Segments are deliberately never restyled by selection:
+  // that would overwrite the perception-aware anomaly cue this project exists
+  // to test.
+  selectionBox: {
+    fillColor: [255, 220, 80, 0.12],
+    outlineColor: [255, 220, 80, 0.9],
+    outlineWidth: 1.5,
+    outlineStyle: "short-dash"
   }
 };
 
