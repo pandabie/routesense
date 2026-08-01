@@ -149,6 +149,20 @@ Portfolio prototype version 1 is complete.
 
 ---
 
+## Phases
+
+| Phase | What happened |
+|---|---|
+| 0–3.5 | ArcGIS setup, drawing trajectories, eight-point context |
+| 4–6 | Anomaly encoding, panel model, computed movement metrics |
+| 7–7.5 | First threshold rule; split into modules + regression tests |
+| 8 | Rule evidence review — the over-flagging finding, visual hierarchy |
+| 9.1–9.2 | AIS ingestion boundary; dataset adapters, registry, profile isolation |
+| 9.3–9.4 | Real AIS sample with provenance; measurement comparison |
+| 10 | Dataset switcher with kind/status badges |
+
+---
+
 ## Tech stack
 
 JavaScript ES modules · ArcGIS Maps SDK for JavaScript · Vite · Node built-in test runner
