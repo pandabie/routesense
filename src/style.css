@@ -32,9 +32,115 @@ body,
   box-sizing: border-box;
 }
 
+.info-panel--collapsed .info-panel__content {
+  display: none;
+}
+
 .info-panel h3 {
   margin: 0 0 8px;
   font-size: 15px;
+}
+
+.info-panel__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.panel-toggle,
+.map-help__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  background: rgba(40, 110, 180, 0.08);
+  border: 1px solid rgba(40, 110, 180, 0.28);
+  border-radius: 999px;
+  color: #1f2933;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel-toggle:hover,
+.map-help__toggle:hover {
+  background: rgba(40, 110, 180, 0.16);
+}
+
+.panel-toggle:focus-visible,
+.map-help__toggle:focus-visible {
+  outline: 2px solid rgba(40, 110, 180, 0.7);
+  outline-offset: 2px;
+}
+
+.panel-toggle__chevron,
+.map-help__chevron {
+  color: #52606d;
+}
+
+/* Map help sits in the map container, opposite the info panel. */
+.map-help {
+  position: absolute;
+  top: var(--rs-panel-inset, 16px);
+  left: var(--rs-panel-inset, 16px);
+  z-index: 20;
+  max-width: min(300px, calc(100vw - var(--rs-panel-total-inset, 32px)));
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2933;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+
+/* Below the desktop breakpoint the info panel spans nearly the full width from
+   the top, so the help moves to the bottom edge instead of underneath it. */
+@media (max-width: 899px) {
+  .map-help {
+    top: auto;
+    bottom: var(--rs-panel-inset, 16px);
+  }
+}
+
+.map-help__toggle {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.map-help__body {
+  margin-top: 8px;
+}
+
+.map-help__row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.map-help__row > span:last-child {
+  color: #52606d;
+}
+
+.map-help__gesture {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.map-help kbd {
+  padding: 1px 5px;
+  background: rgba(40, 110, 180, 0.1);
+  border: 1px solid rgba(40, 110, 180, 0.3);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .info-panel p {

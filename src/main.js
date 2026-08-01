@@ -49,9 +49,12 @@ import {
   selectPointsInExtent
 } from "./selection.js";
 import {
+  PANEL_CONTENT_ID,
   renderDatasetSwitcher,
   renderDefaultPanel,
   renderGroupSelectionPanel,
+  renderMapHelp,
+  renderPanelToggle,
   renderPointPanel,
   renderTrajectoryPanel,
   renderAnomalyPanel,
@@ -96,6 +99,12 @@ const model = hasReviewedAnalysis
       measurementReviewProfile: activeDataset.measurementReviewProfile
     });
 const activeMapConfig = activeDataset.mapView ?? MAP_CONFIG;
+
+// Resolved once at boot, like the dataset itself. The map help text and the
+// drag handler both read it, so it lives with the other boot-time decisions.
+const groupSelectionEnabled =
+  new URLSearchParams(window.location.search).get(GROUP_SELECTION.queryParam) ===
+  GROUP_SELECTION.enabledValue;
 
 // ============================================================
 // MAP SETUP
@@ -362,8 +371,61 @@ panelHeader.className = "info-panel__header";
 
 const panelContent = document.createElement("div");
 panelContent.className = "info-panel__content";
+panelContent.id = PANEL_CONTENT_ID;
 
-infoPanel.append(panelHeader, panelContent);
+// A toolbar above the header holds the collapse control, so collapsing hides
+// only the interaction output. The dataset switcher stays reachable because
+// switching datasets is how you change what the map is showing at all.
+const panelToolbar = document.createElement("div");
+panelToolbar.className = "info-panel__toolbar";
+
+infoPanel.append(panelToolbar, panelHeader, panelContent);
+
+let isPanelExpanded = true;
+
+function renderPanelToolbar() {
+  panelToolbar.innerHTML = renderPanelToggle(isPanelExpanded);
+  infoPanel.classList.toggle("info-panel--collapsed", !isPanelExpanded);
+}
+
+panelToolbar.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-panel-toggle]")) return;
+
+  isPanelExpanded = !isPanelExpanded;
+  renderPanelToolbar();
+});
+
+renderPanelToolbar();
+
+// --- Map help ---
+// Placed in the map container rather than the panel: it describes gestures
+// performed on the map, and it has to stay readable while the panel is collapsed.
+const mapHelp = document.createElement("div");
+mapHelp.className = "map-help";
+mapHelp.style.setProperty("--rs-panel-inset", `${UI_LAYOUT.panelInset}px`);
+mapHelp.style.setProperty(
+  "--rs-panel-total-inset",
+  `${UI_LAYOUT.panelInset * 2}px`
+);
+viewContainer.append(mapHelp);
+
+let isMapHelpExpanded = true;
+
+function renderMapHelpBox() {
+  mapHelp.innerHTML = renderMapHelp({
+    groupSelectionEnabled,
+    isExpanded: isMapHelpExpanded
+  });
+}
+
+mapHelp.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-help-toggle]")) return;
+
+  isMapHelpExpanded = !isMapHelpExpanded;
+  renderMapHelpBox();
+});
+
+renderMapHelpBox();
 
 panelHeader.innerHTML = renderDatasetSwitcher(
   buildDatasetSwitcherOptions(DATASET_REGISTRY, activeDataset.id),
@@ -403,8 +465,16 @@ function renderActiveDatasetPanel() {
 
 // The panel is the scroll container, so every content swap returns to the top;
 // otherwise a new selection can render below the current scroll position.
+// A collapsed panel re-expands here: the panel is the entire result of a map
+// interaction, so leaving it shut would make a click look like it did nothing.
 function setPanelContent(html) {
   panelContent.innerHTML = html;
+
+  if (!isPanelExpanded) {
+    isPanelExpanded = true;
+    renderPanelToolbar();
+  }
+
   infoPanel.scrollTop = 0;
 }
 
@@ -535,10 +605,6 @@ view.on("click", (event) => {
 // Shift-drag draws a box and selects every vessel point inside it. Without the
 // query flag none of this is registered, so the v1 interaction is untouched.
 // ============================================================
-
-const groupSelectionEnabled =
-  new URLSearchParams(window.location.search).get(GROUP_SELECTION.queryParam) ===
-  GROUP_SELECTION.enabledValue;
 
 if (groupSelectionEnabled) {
   // Shift is read once at drag start: releasing the key mid-drag must not turn

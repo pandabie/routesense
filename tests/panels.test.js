@@ -17,9 +17,13 @@ import {
 } from "../src/datasets.js";
 import { buildSelectionSummary } from "../src/selection.js";
 import {
+  MAP_HELP_BODY_ID,
+  PANEL_CONTENT_ID,
   renderAnomalyPanel,
   renderDatasetSwitcher,
   renderGroupSelectionPanel,
+  renderMapHelp,
+  renderPanelToggle,
   renderRuleEvidenceReview,
   renderRuleEvidenceSegmentPanel,
   renderNormalSegmentPanel
@@ -194,6 +198,56 @@ test("dataset switcher marks the active dataset and renders every option with it
 test("dataset switcher renders nothing without options", () => {
   assert.equal(renderDatasetSwitcher([]), "");
   assert.equal(renderDatasetSwitcher(undefined), "");
+});
+
+// --- Map help and panel collapse -------------------------------------------
+
+test("map help advertises shift-drag only when group selection is switched on", () => {
+  const withGroup = renderMapHelp({ groupSelectionEnabled: true });
+  const withoutGroup = renderMapHelp({ groupSelectionEnabled: false });
+
+  assert.match(withGroup, /<kbd>Shift<\/kbd> \+ drag/);
+  assert.match(withGroup, /Select a stretch of the trajectory/);
+  assert.doesNotMatch(withoutGroup, /Shift/);
+  assert.doesNotMatch(withoutGroup, /Select a stretch of the trajectory/);
+
+  // Interactions that exist in both builds stay listed either way.
+  [withGroup, withoutGroup].forEach((html) => {
+    assert.match(html, /Click a point/);
+    assert.match(html, /Click a segment/);
+    assert.match(html, /Click empty water/);
+  });
+});
+
+test("collapsed map help keeps its toggle and drops the instruction body", () => {
+  const collapsed = renderMapHelp({ groupSelectionEnabled: true, isExpanded: false });
+
+  assert.match(collapsed, /How to use this map/);
+  assert.match(collapsed, /aria-expanded="false"/);
+  assert.doesNotMatch(collapsed, new RegExp(`id="${MAP_HELP_BODY_ID}"`));
+  assert.doesNotMatch(collapsed, /Click a point/);
+});
+
+test("map help starts expanded because shift-drag is otherwise undiscoverable", () => {
+  const html = renderMapHelp({ groupSelectionEnabled: true });
+
+  assert.match(html, /aria-expanded="true"/);
+  assert.match(html, new RegExp(`id="${MAP_HELP_BODY_ID}"`));
+});
+
+test("panel toggle states its action and points at the region it controls", () => {
+  const expanded = renderPanelToggle(true);
+  const collapsed = renderPanelToggle(false);
+
+  assert.match(expanded, /Collapse/);
+  assert.match(expanded, /aria-expanded="true"/);
+  assert.match(collapsed, /Expand for more/);
+  assert.match(collapsed, /aria-expanded="false"/);
+
+  [expanded, collapsed].forEach((html) => {
+    assert.match(html, new RegExp(`aria-controls="${PANEL_CONTENT_ID}"`));
+    assert.match(html, /data-panel-toggle/);
+  });
 });
 
 // --- Group selection (drag-box experiment) ---------------------------------
