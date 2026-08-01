@@ -76,10 +76,14 @@ export const ENCODING = {
     outlineColor: [255, 255, 255, 1],
     outlineWidth: 3
   },
-  // The drag box borrows the selected-point hue so selection reads as one
-  // visual language. Segments are deliberately never restyled by selection:
-  // that would overwrite the perception-aware anomaly cue this project exists
-  // to test.
+  // Selected segments get a halo drawn *underneath* the route, never a
+  // replacement symbol. Swapping a segment's own colour or dash pattern would
+  // overwrite the perception-aware anomaly cue this project exists to test, so
+  // selection is additive: the blue normal line and the red dashed anomaly line
+  // both stay exactly as they are and gain a ring behind them.
+  selectedSegment: { color: [255, 220, 80, 0.55], width: 14 },
+  // The drag box borrows the same selected hue so click selection, drag
+  // selection, and the box itself read as one visual language.
   selectionBox: {
     fillColor: [255, 220, 80, 0.12],
     outlineColor: [255, 220, 80, 0.9],

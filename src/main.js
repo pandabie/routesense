@@ -41,7 +41,8 @@ import {
 } from "./datasets.js";
 import {
   buildTrajectoryDisplayModel,
-  buildTrajectoryModel
+  buildTrajectoryModel,
+  getSegmentKey
 } from "./analysis.js";
 import {
   buildSelectionSummary,
@@ -226,16 +227,57 @@ model.segments.forEach((segment) => {
   );
 });
 
-// --- Vessel points (re-rendered when selection changes) ---
-// Selection is a set of trajectory orders so a single click and a drag box
-// share one state shape. A click simply produces a set of one.
+// --- Selection state ---
+// Points and segments share one selection model so a click and a drag box are
+// the same thing at different sizes: a click just produces a set of one.
 const selectedPointOrders = new Set();
+const selectedSegmentKeys = new Set();
 const vesselPointGraphics = [];
+const segmentHighlightGraphics = [];
 
-function setSelectedPointOrders(orders = []) {
+function setSelection({ pointOrders = [], segmentKeys = [] } = {}) {
   selectedPointOrders.clear();
-  orders.forEach((order) => selectedPointOrders.add(order));
+  pointOrders.forEach((order) => selectedPointOrders.add(order));
+
+  selectedSegmentKeys.clear();
+  segmentKeys.forEach((key) => selectedSegmentKeys.add(key));
+
+  renderSegmentHighlights();
   renderPointGraphics();
+}
+
+// A halo behind the route, not a restyled route. Inserting at index 0 keeps it
+// below every other graphic, so selecting the anomaly segment still shows its
+// dashed red cue on top rather than replacing it with a selection colour.
+function renderSegmentHighlights() {
+  segmentHighlightGraphics.forEach((g) => view.graphics.remove(g));
+  segmentHighlightGraphics.length = 0;
+
+  model.segments
+    .filter((segment) =>
+      selectedSegmentKeys.has(getSegmentKey(segment.fromOrder, segment.toOrder))
+    )
+    .forEach((segment) => {
+      // No attributes: the click dispatcher filters on graphicType, so the
+      // halo can never intercept a hit meant for the segment it sits under.
+      const graphic = new Graphic({
+        geometry: {
+          type: "polyline",
+          paths: [[
+            [segment.start.longitude, segment.start.latitude],
+            [segment.end.longitude, segment.end.latitude]
+          ]]
+        },
+        symbol: {
+          type: "simple-line",
+          color: ENCODING.selectedSegment.color,
+          width: ENCODING.selectedSegment.width
+        }
+      });
+
+      view.graphics.add(graphic, 0);
+      segmentHighlightGraphics.push(graphic);
+    });
 }
 
 function createPointGraphic(point) {
@@ -448,16 +490,15 @@ view.on("click", (event) => {
 
     // Clicked empty space: clear selection and reset.
     if (!hit) {
-      setSelectedPointOrders([]);
+      setSelection();
       setPanelContent(renderActiveDatasetPanel());
       return;
     }
 
     const attributes = hit.graphic.attributes;
 
-    // Vessel points are the only selectable graphic.
     if (attributes.graphicType === "vessel-point") {
-      setSelectedPointOrders([attributes.order]);
+      setSelection({ pointOrders: [attributes.order] });
       const selectedPoint = trajectoryPoints.find(
         (point) => point.order === attributes.order
       ) ?? attributes;
@@ -470,8 +511,17 @@ view.on("click", (event) => {
       return;
     }
 
-    // Any other graphic clears the point selection first.
-    setSelectedPointOrders([]);
+    // Segments carry their endpoint orders under different attribute names
+    // depending on which graphic was hit; both resolve to the same segment key.
+    const clickedSegmentKey =
+      attributes.graphicType === "trajectory-segment"
+        ? getSegmentKey(attributes.fromOrder, attributes.toOrder)
+        : attributes.graphicType === "anomaly-segment"
+          ? getSegmentKey(attributes.startOrder, attributes.endOrder)
+          : null;
+
+    setSelection({ segmentKeys: clickedSegmentKey ? [clickedSegmentKey] : [] });
+
     const renderPanel = panelByGraphicType[attributes.graphicType];
     setPanelContent(
       renderPanel ? renderPanel(attributes) : renderActiveDatasetPanel()
@@ -550,11 +600,18 @@ if (groupSelectionEnabled) {
   const applySelection = (extent) => {
     const selectedPoints = selectPointsInExtent(trajectoryPoints, extent);
 
-    setSelectedPointOrders(selectedPoints.map((point) => point.order));
-
     const summary = buildSelectionSummary(selectedPoints, model, {
       primaryAnomaly: analysisOptions?.anomalySegment ?? null,
       baselineRange: analysisOptions?.baselineRange ?? null
+    });
+
+    // Only interior segments are highlighted, matching what the panel counts.
+    // A boundary segment is explained in text but never drawn as selected.
+    setSelection({
+      pointOrders: selectedPoints.map((point) => point.order),
+      segmentKeys: summary.interiorSegments.map((segment) =>
+        getSegmentKey(segment.fromOrder, segment.toOrder)
+      )
     });
 
     setPanelContent(
