@@ -50,13 +50,8 @@ export const THRESHOLD_RULE = {
   headingChangeDegrees: 45
 };
 
-// Group (drag-box) selection experiment.
-// Opt-in at boot via `?select=group`, matching the dataset-selection boundary:
-// resolved once, never toggled at runtime. With the flag absent the map keeps
-// its v1 single-click behaviour exactly.
+// Group (shift-drag box) selection tuning.
 export const GROUP_SELECTION = {
-  queryParam: "select",
-  enabledValue: "group",
   // Below this drag distance the gesture is treated as a click, so selecting a
   // single point never turns into an accidental one-point box.
   minimumDragPixels: 5

@@ -202,25 +202,18 @@ test("dataset switcher renders nothing without options", () => {
 
 // --- Map help and panel collapse -------------------------------------------
 
-test("map help advertises shift-drag only when group selection is switched on", () => {
-  const withGroup = renderMapHelp({ groupSelectionEnabled: true });
-  const withoutGroup = renderMapHelp({ groupSelectionEnabled: false });
+test("map help lists every gesture, including shift-drag", () => {
+  const html = renderMapHelp();
 
-  assert.match(withGroup, /<kbd>Shift<\/kbd> \+ drag/);
-  assert.match(withGroup, /Select a stretch of the trajectory/);
-  assert.doesNotMatch(withoutGroup, /Shift/);
-  assert.doesNotMatch(withoutGroup, /Select a stretch of the trajectory/);
-
-  // Interactions that exist in both builds stay listed either way.
-  [withGroup, withoutGroup].forEach((html) => {
-    assert.match(html, /Click a point/);
-    assert.match(html, /Click a segment/);
-    assert.match(html, /Click empty water/);
-  });
+  assert.match(html, /<kbd>Shift<\/kbd> \+ drag/);
+  assert.match(html, /Select a stretch of the trajectory/);
+  assert.match(html, /Click a point/);
+  assert.match(html, /Click a segment/);
+  assert.match(html, /Click empty water/);
 });
 
 test("collapsed map help keeps its toggle and drops the instruction body", () => {
-  const collapsed = renderMapHelp({ groupSelectionEnabled: true, isExpanded: false });
+  const collapsed = renderMapHelp({ isExpanded: false });
 
   assert.match(collapsed, /How to use this map/);
   assert.match(collapsed, /aria-expanded="false"/);
@@ -229,7 +222,7 @@ test("collapsed map help keeps its toggle and drops the instruction body", () =>
 });
 
 test("map help starts expanded because shift-drag is otherwise undiscoverable", () => {
-  const html = renderMapHelp({ groupSelectionEnabled: true });
+  const html = renderMapHelp();
 
   assert.match(html, /aria-expanded="true"/);
   assert.match(html, new RegExp(`id="${MAP_HELP_BODY_ID}"`));

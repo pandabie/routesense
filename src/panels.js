@@ -75,14 +75,11 @@ export const MAP_HELP_BODY_ID = "rs-map-help-body";
 export const PANEL_CONTENT_ID = "rs-panel-content";
 
 /**
- * Instructions for the map's interaction model. Shift-drag is undiscoverable
- * on its own, so the help starts expanded and only advertises the gesture when
- * the group-selection experiment is actually switched on.
+ * Instructions for the map's interaction model. Starts expanded because
+ * shift-drag has no visual affordance of its own — nothing on the map hints
+ * that the gesture exists.
  */
-export function renderMapHelp({
-  groupSelectionEnabled = false,
-  isExpanded = true
-} = {}) {
+export function renderMapHelp({ isExpanded = true } = {}) {
   const toggle = `
     <button
       type="button"
@@ -98,19 +95,6 @@ export function renderMapHelp({
 
   if (!isExpanded) return toggle;
 
-  const groupSelectionRows = groupSelectionEnabled
-    ? `
-      <div class="map-help__row">
-        <kbd>Shift</kbd> + drag
-        <span>Select a stretch of the trajectory</span>
-      </div>
-      <div class="map-help__row">
-        <span class="map-help__gesture">Drag</span>
-        <span>Pan the map</span>
-      </div>
-    `
-    : "";
-
   return `
     ${toggle}
     <div class="map-help__body" id="${MAP_HELP_BODY_ID}">
@@ -122,7 +106,14 @@ export function renderMapHelp({
         <span class="map-help__gesture">Click a segment</span>
         <span>Inspect the movement between two points</span>
       </div>
-      ${groupSelectionRows}
+      <div class="map-help__row">
+        <kbd>Shift</kbd> + drag
+        <span>Select a stretch of the trajectory</span>
+      </div>
+      <div class="map-help__row">
+        <span class="map-help__gesture">Drag</span>
+        <span>Pan the map</span>
+      </div>
       <div class="map-help__row">
         <span class="map-help__gesture">Click empty water</span>
         <span>Clear the selection</span>

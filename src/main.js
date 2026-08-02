@@ -100,12 +100,6 @@ const model = hasReviewedAnalysis
     });
 const activeMapConfig = activeDataset.mapView ?? MAP_CONFIG;
 
-// Resolved once at boot, like the dataset itself. The map help text and the
-// drag handler both read it, so it lives with the other boot-time decisions.
-const groupSelectionEnabled =
-  new URLSearchParams(window.location.search).get(GROUP_SELECTION.queryParam) ===
-  GROUP_SELECTION.enabledValue;
-
 // ============================================================
 // MAP SETUP
 // ============================================================
@@ -411,10 +405,7 @@ view.ui.add(mapHelp, "top-left");
 let isMapHelpExpanded = true;
 
 function renderMapHelpBox() {
-  mapHelp.innerHTML = renderMapHelp({
-    groupSelectionEnabled,
-    isExpanded: isMapHelpExpanded
-  });
+  mapHelp.innerHTML = renderMapHelp({ isExpanded: isMapHelpExpanded });
 }
 
 mapHelp.addEventListener("click", (event) => {
@@ -599,131 +590,128 @@ view.on("click", (event) => {
 });
 
 // ============================================================
-// GROUP SELECTION (opt-in experiment: ?select=group)
+// GROUP SELECTION
 //
-// Shift-drag draws a box and selects every vessel point inside it. Without the
-// query flag none of this is registered, so the v1 interaction is untouched.
+// Shift-drag draws a box and selects every vessel point inside it.
 // ============================================================
 
-if (groupSelectionEnabled) {
-  // Shift is read once at drag start: releasing the key mid-drag must not turn
-  // a box selection back into a map pan.
-  let activeDrag = null;
-  let selectionBoxGraphic = null;
+// Shift is read once at drag start: releasing the key mid-drag must not turn
+// a box selection back into a map pan.
+let activeDrag = null;
+let selectionBoxGraphic = null;
 
-  const clearSelectionBox = () => {
-    if (selectionBoxGraphic) {
-      view.graphics.remove(selectionBoxGraphic);
-      selectionBoxGraphic = null;
-    }
+const clearSelectionBox = () => {
+  if (selectionBoxGraphic) {
+    view.graphics.remove(selectionBoxGraphic);
+    selectionBoxGraphic = null;
+  }
+};
+
+// Screen corners -> geographic box. `toMap` returns a point in the view's
+// spatial reference; `longitude`/`latitude` convert from Web Mercator.
+const toGeographicExtent = (origin, current) => {
+  const start = view.toMap({ x: origin.x, y: origin.y });
+  const end = view.toMap({ x: current.x, y: current.y });
+
+  if (!start || !end) return null;
+
+  return {
+    xmin: Math.min(start.longitude, end.longitude),
+    ymin: Math.min(start.latitude, end.latitude),
+    xmax: Math.max(start.longitude, end.longitude),
+    ymax: Math.max(start.latitude, end.latitude)
   };
+};
 
-  // Screen corners -> geographic box. `toMap` returns a point in the view's
-  // spatial reference; `longitude`/`latitude` convert from Web Mercator.
-  const toGeographicExtent = (origin, current) => {
-    const start = view.toMap({ x: origin.x, y: origin.y });
-    const end = view.toMap({ x: current.x, y: current.y });
+const drawSelectionBox = (extent) => {
+  clearSelectionBox();
 
-    if (!start || !end) return null;
-
-    return {
-      xmin: Math.min(start.longitude, end.longitude),
-      ymin: Math.min(start.latitude, end.latitude),
-      xmax: Math.max(start.longitude, end.longitude),
-      ymax: Math.max(start.latitude, end.latitude)
-    };
-  };
-
-  const drawSelectionBox = (extent) => {
-    clearSelectionBox();
-
-    selectionBoxGraphic = new Graphic({
-      geometry: {
-        type: "polygon",
-        rings: [[
-          [extent.xmin, extent.ymin],
-          [extent.xmin, extent.ymax],
-          [extent.xmax, extent.ymax],
-          [extent.xmax, extent.ymin],
-          [extent.xmin, extent.ymin]
-        ]]
-      },
-      symbol: {
-        type: "simple-fill",
-        color: ENCODING.selectionBox.fillColor,
-        outline: {
-          color: ENCODING.selectionBox.outlineColor,
-          width: ENCODING.selectionBox.outlineWidth,
-          style: ENCODING.selectionBox.outlineStyle
-        }
+  selectionBoxGraphic = new Graphic({
+    geometry: {
+      type: "polygon",
+      rings: [[
+        [extent.xmin, extent.ymin],
+        [extent.xmin, extent.ymax],
+        [extent.xmax, extent.ymax],
+        [extent.xmax, extent.ymin],
+        [extent.xmin, extent.ymin]
+      ]]
+    },
+    symbol: {
+      type: "simple-fill",
+      color: ENCODING.selectionBox.fillColor,
+      outline: {
+        color: ENCODING.selectionBox.outlineColor,
+        width: ENCODING.selectionBox.outlineWidth,
+        style: ENCODING.selectionBox.outlineStyle
       }
-    });
-
-    view.graphics.add(selectionBoxGraphic);
-  };
-
-  const applySelection = (extent) => {
-    const selectedPoints = selectPointsInExtent(trajectoryPoints, extent);
-
-    const summary = buildSelectionSummary(selectedPoints, model, {
-      primaryAnomaly: analysisOptions?.anomalySegment ?? null,
-      baselineRange: analysisOptions?.baselineRange ?? null
-    });
-
-    // Only interior segments are highlighted, matching what the panel counts.
-    // A boundary segment is explained in text but never drawn as selected.
-    setSelection({
-      pointOrders: selectedPoints.map((point) => point.order),
-      segmentKeys: summary.interiorSegments.map((segment) =>
-        getSegmentKey(segment.fromOrder, segment.toOrder)
-      )
-    });
-
-    setPanelContent(
-      renderGroupSelectionPanel(summary, {
-        model,
-        dataset: activeDataset,
-        anomalySegment: analysisOptions?.anomalySegment ?? null
-      })
-    );
-  };
-
-  view.on("drag", (event) => {
-    if (event.action === "start") {
-      activeDrag = event.native?.shiftKey
-        ? { x: event.origin.x, y: event.origin.y }
-        : null;
-    }
-
-    // Not a shift-drag: let the view handle it as a normal pan.
-    if (!activeDrag) return;
-
-    // Suppressing propagation on every phase also disables the default
-    // shift-drag zoom-box behaviour for the duration of the gesture.
-    event.stopPropagation();
-
-    const extent = toGeographicExtent(activeDrag, event);
-
-    if (event.action === "update") {
-      if (extent) drawSelectionBox(extent);
-      return;
-    }
-
-    if (event.action === "end") {
-      clearSelectionBox();
-
-      const dragDistance = Math.hypot(
-        event.x - activeDrag.x,
-        event.y - activeDrag.y
-      );
-
-      // Too small to be a deliberate box: leave the existing selection alone
-      // and let the click handler deal with it.
-      if (dragDistance >= GROUP_SELECTION.minimumDragPixels && extent) {
-        applySelection(extent);
-      }
-
-      activeDrag = null;
     }
   });
-}
+
+  view.graphics.add(selectionBoxGraphic);
+};
+
+const applySelection = (extent) => {
+  const selectedPoints = selectPointsInExtent(trajectoryPoints, extent);
+
+  const summary = buildSelectionSummary(selectedPoints, model, {
+    primaryAnomaly: analysisOptions?.anomalySegment ?? null,
+    baselineRange: analysisOptions?.baselineRange ?? null
+  });
+
+  // Only interior segments are highlighted, matching what the panel counts.
+  // A boundary segment is explained in text but never drawn as selected.
+  setSelection({
+    pointOrders: selectedPoints.map((point) => point.order),
+    segmentKeys: summary.interiorSegments.map((segment) =>
+      getSegmentKey(segment.fromOrder, segment.toOrder)
+    )
+  });
+
+  setPanelContent(
+    renderGroupSelectionPanel(summary, {
+      model,
+      dataset: activeDataset,
+      anomalySegment: analysisOptions?.anomalySegment ?? null
+    })
+  );
+};
+
+view.on("drag", (event) => {
+  if (event.action === "start") {
+    activeDrag = event.native?.shiftKey
+      ? { x: event.origin.x, y: event.origin.y }
+      : null;
+  }
+
+  // Not a shift-drag: let the view handle it as a normal pan.
+  if (!activeDrag) return;
+
+  // Suppressing propagation on every phase also disables the default
+  // shift-drag zoom-box behaviour for the duration of the gesture.
+  event.stopPropagation();
+
+  const extent = toGeographicExtent(activeDrag, event);
+
+  if (event.action === "update") {
+    if (extent) drawSelectionBox(extent);
+    return;
+  }
+
+  if (event.action === "end") {
+    clearSelectionBox();
+
+    const dragDistance = Math.hypot(
+      event.x - activeDrag.x,
+      event.y - activeDrag.y
+    );
+
+    // Too small to be a deliberate box: leave the existing selection alone
+    // and let the click handler deal with it.
+    if (dragDistance >= GROUP_SELECTION.minimumDragPixels && extent) {
+      applySelection(extent);
+    }
+
+    activeDrag = null;
+  }
+});
