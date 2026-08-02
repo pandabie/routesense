@@ -326,12 +326,30 @@ function comparableDifferences(reviews, metric, field) {
     .filter((value) => Number.isFinite(value));
 }
 
-export function summarizeMeasurementComparison(interiorSegments = []) {
-  const reviews = interiorSegments
-    .map((segment) => segment.measurementReview)
-    .filter(Boolean);
+function describeReviewedMetric(review, metric, field) {
+  const status =
+    review?.[metric]?.status ??
+    MEASUREMENT_COMPARISON_STATUS.INSUFFICIENT_EVIDENCE;
 
-  if (reviews.length === 0) return null;
+  return {
+    status,
+    // Only a comparable metric carries a number. A status alone is the honest
+    // answer for the rest — there is nothing to subtract.
+    difference:
+      status === MEASUREMENT_COMPARISON_STATUS.COMPARABLE
+        ? review[metric][field] ?? null
+        : null
+  };
+}
+
+export function summarizeMeasurementComparison(interiorSegments = []) {
+  const reviewed = interiorSegments.filter(
+    (segment) => segment.measurementReview
+  );
+
+  if (reviewed.length === 0) return null;
+
+  const reviews = reviewed.map((segment) => segment.measurementReview);
 
   return {
     segmentCount: reviews.length,
@@ -344,7 +362,25 @@ export function summarizeMeasurementComparison(interiorSegments = []) {
     ),
     directionDifferenceRangeDegrees: range(
       comparableDifferences(reviews, "direction", "differenceDegrees")
-    )
+    ),
+    // Per-segment breakdown behind the aggregate. Speed and direction keep
+    // their own status: a combined verdict could report "comparable" for a
+    // segment whose direction was never comparable at all.
+    items: reviewed.map((segment) => ({
+      fromOrder: segment.fromOrder,
+      toOrder: segment.toOrder,
+      label: `Point ${segment.fromOrder} → Point ${segment.toOrder}`,
+      speed: describeReviewedMetric(
+        segment.measurementReview,
+        "speed",
+        "differenceKmh"
+      ),
+      direction: describeReviewedMetric(
+        segment.measurementReview,
+        "direction",
+        "differenceDegrees"
+      )
+    }))
   };
 }
 

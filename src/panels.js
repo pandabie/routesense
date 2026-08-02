@@ -788,6 +788,51 @@ function renderRuleNarrativeComparison(summary) {
   `;
 }
 
+// A metric that was never comparable states why instead of showing a number.
+function formatMetricDifference(metric, suffix, { signed = false } = {}) {
+  if (metric?.status !== MEASUREMENT_COMPARISON_STATUS.COMPARABLE) {
+    return getComparisonStatusLabel(metric?.status).toLowerCase();
+  }
+
+  return signed
+    ? formatSignedNumber(metric.difference, suffix)
+    : `${formatNumber(metric.difference)}${suffix}`;
+}
+
+// The real-AIS counterpart of the rule comparison list. Same rows, same
+// drill-down links, descriptive content only — no flagged/normal verdict,
+// because this dataset has no rule that could produce one.
+function renderMeasurementComparisonItems(items = []) {
+  if (items.length === 0) return "";
+
+  return `
+    <ol class="group-comparison-list">
+      ${items
+        .map(
+          (item) => `
+            <li
+              class="group-comparison-item group-comparison-item--quiet"
+              data-segment-key="${item.fromOrder}-${item.toOrder}"
+            >
+              <button
+                type="button"
+                class="group-comparison-item__label"
+                data-select-segment
+                data-from-order="${item.fromOrder}"
+                data-to-order="${item.toOrder}"
+              >${item.label}</button>
+              <span class="group-comparison-item__trigger">
+                Speed ${formatMetricDifference(item.speed, " km/h", { signed: true })}
+                · Direction ${formatMetricDifference(item.direction, "°")}
+              </span>
+            </li>
+          `
+        )
+        .join("")}
+    </ol>
+  `;
+}
+
 function renderMeasurementComparisonAggregate(summary) {
   const measurement = summary.measurement;
 
@@ -810,8 +855,10 @@ function renderMeasurementComparisonAggregate(summary) {
          ${formatSignedRange(measurement.speedDifferenceRangeKmh, " km/h")}</p>
       <p>Direction difference (circular):
          ${formatPlainRange(measurement.directionDifferenceRangeDegrees, "°")}</p>
+      ${renderMeasurementComparisonItems(measurement.items)}
       <p class="panel-note compact-panel-note">
-        Reported as ranges and status counts across the selection. These are not
+        Per-segment values repeat the same two differences: speed as
+        computed − reported, direction as a circular difference. These are not
         error scores, validation results, or anomaly labels, and no baseline or
         threshold rule is attached to this dataset.
       </p>

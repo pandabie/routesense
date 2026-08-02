@@ -402,6 +402,33 @@ test("a non-contiguous selection reports runs and withholds segment aggregates",
   assert.doesNotMatch(html, /Rule vs\. narrative/);
 });
 
+test("the real AIS group panel lists each segment with drill-down links", () => {
+  const displayModel = buildTrajectoryDisplayModel(
+    gothenburgRealAisDataset.points,
+    { measurementReviewProfile: gothenburgRealAisDataset.measurementReviewProfile }
+  );
+
+  const summary = buildSelectionSummary(
+    gothenburgRealAisDataset.points,
+    displayModel,
+    { primaryAnomaly: null, baselineRange: null }
+  );
+
+  const html = renderGroupSelectionPanel(summary, {
+    model: displayModel,
+    dataset: gothenburgRealAisDataset
+  });
+
+  // One drillable row per interior segment, same mechanism as the rule list.
+  assert.equal((html.match(/data-select-segment/g) ?? []).length, 3);
+  assert.match(html, /data-from-order="1"[\s\S]*?data-to-order="2"/);
+  assert.match(html, /Point 1 → Point 2/);
+
+  // Rows carry the two descriptive differences and nothing resembling a verdict.
+  assert.match(html, /Speed [+-]?\d+\.\d+ km\/h\s*· Direction \d+\.\d+°/);
+  assert.doesNotMatch(html, /Not flagged|Rule only|Narrative anomaly/);
+});
+
 test("the real AIS group panel stays descriptive and carries no detection language", () => {
   const displayModel = buildTrajectoryDisplayModel(
     gothenburgRealAisDataset.points,

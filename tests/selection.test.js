@@ -292,6 +292,8 @@ test("an unreviewed dataset gets a measurement comparison and no rule block", ()
 test("measurement differences are summarized as ranges, never as a mean", () => {
   const segments = [
     {
+      fromOrder: 1,
+      toOrder: 2,
       measurementReview: {
         speed: {
           status: MEASUREMENT_COMPARISON_STATUS.COMPARABLE,
@@ -304,6 +306,8 @@ test("measurement differences are summarized as ranges, never as a mean", () => 
       }
     },
     {
+      fromOrder: 2,
+      toOrder: 3,
       measurementReview: {
         speed: {
           status: MEASUREMENT_COMPARISON_STATUS.COMPARABLE,
@@ -318,6 +322,17 @@ test("measurement differences are summarized as ranges, never as a mean", () => 
   ];
 
   const measurement = summarizeMeasurementComparison(segments);
+
+  // Speed and direction keep separate statuses: the second segment's direction
+  // was never comparable, so no combined verdict may imply it was.
+  assert.equal(measurement.items.length, 2);
+  assert.equal(measurement.items[1].speed.status, MEASUREMENT_COMPARISON_STATUS.COMPARABLE);
+  assert.equal(measurement.items[1].speed.difference, 0.8);
+  assert.equal(
+    measurement.items[1].direction.status,
+    MEASUREMENT_COMPARISON_STATUS.TIMESTAMP_GAP_TOO_LARGE
+  );
+  assert.equal(measurement.items[1].direction.difference, null);
 
   assert.deepEqual(measurement.speedDifferenceRangeKmh, { min: -1.2, max: 0.8 });
   assert.equal(measurement.directionDifferenceRangeDegrees.min, 4);
