@@ -819,22 +819,38 @@ function renderMeasurementComparisonAggregate(summary) {
   `;
 }
 
-// Two adjacent points carry exactly the information of one clicked segment, so
-// the existing segment renderer is reused rather than duplicated.
-function renderDelegatedSegmentPanel(segment, { model, dataset }) {
+/**
+ * The single answer to "which panel does this segment get?".
+ *
+ * Both entry points call it — clicking a segment on the map, and a two-point
+ * group selection, which carries exactly the information of one clicked
+ * segment. Keeping the decision in one place is the point: it previously lived
+ * in two, and the copies drifted, so selecting points 6-7 showed a shorter
+ * panel than clicking segment 6-7.
+ */
+export function renderSegmentPanel(segment, { model, dataset = null } = {}) {
+  if (!segment) return null;
+
   if (model?.thresholds == null) {
     return renderUnreviewedSegmentPanel(segment, dataset);
+  }
+
+  const evidenceItem = (model.ruleEvidenceItems ?? []).find(
+    (item) =>
+      item.fromOrder === segment.fromOrder && item.toOrder === segment.toOrder
+  );
+
+  // The primary anomaly gets the full detection panel, baseline comparison and
+  // rule evidence review included. It is the trajectory's headline finding, so
+  // it is never reduced to a per-segment summary.
+  if (evidenceItem?.isPrimaryAnomaly) {
+    return renderAnomalyPanel(model);
   }
 
   const context = {
     thresholds: model.thresholds,
     primaryAnomaly: model.anomalyEvidence
   };
-
-  const evidenceItem = (model.ruleEvidenceItems ?? []).find(
-    (item) =>
-      item.fromOrder === segment.fromOrder && item.toOrder === segment.toOrder
-  );
 
   return evidenceItem
     ? renderRuleEvidenceSegmentPanel(evidenceItem, context)
@@ -874,10 +890,10 @@ export function renderGroupSelectionPanel(
   }
 
   if (summary.tier === SELECTION_TIER.SINGLE_SEGMENT) {
-    const segmentPanel = renderDelegatedSegmentPanel(
-      summary.interiorSegments[0],
-      { model, dataset }
-    );
+    const segmentPanel = renderSegmentPanel(summary.interiorSegments[0], {
+      model,
+      dataset
+    });
 
     return `${header}${segmentPanel}${renderBoundarySegments(summary)}`;
   }

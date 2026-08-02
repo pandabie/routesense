@@ -56,14 +56,12 @@ import {
   renderMapHelp,
   renderPanelToggle,
   renderPointPanel,
+  renderSegmentPanel,
   renderTrajectoryPanel,
   renderAnomalyPanel,
-  renderRuleEvidenceSegmentPanel,
-  renderNormalSegmentPanel,
   renderDirectionPanel,
   renderUnreviewedDatasetPanel,
-  renderUnreviewedPointPanel,
-  renderUnreviewedSegmentPanel
+  renderUnreviewedPointPanel
 } from "./panels.js";
 
 // ============================================================
@@ -522,14 +520,6 @@ setPanelContent(renderActiveDatasetPanel());
 // A single dispatcher routes clicks by graphicType.
 // ============================================================
 
-function getRuleEvidenceItem(attributes) {
-  return model.ruleEvidenceItems.find(
-    (item) =>
-      item.fromOrder === attributes.fromOrder &&
-      item.toOrder === attributes.toOrder
-  ) ?? null;
-}
-
 function getTrajectorySegment(attributes) {
   return model.segments.find(
     (segment) =>
@@ -539,34 +529,22 @@ function getTrajectorySegment(attributes) {
 }
 
 const panelByGraphicType = {
+  // renderSegmentPanel owns the choice of panel so that clicking a segment and
+  // group-selecting its two endpoints can never disagree.
   "trajectory-segment": (attributes) => {
     const segment = getTrajectorySegment(attributes);
 
-    if (!hasReviewedAnalysis) {
-      return segment
-        ? renderUnreviewedSegmentPanel(segment, activeDataset)
-        : renderUnreviewedDatasetPanel(activeDataset, model);
-    }
+    const segmentPanel = renderSegmentPanel(segment, {
+      model,
+      dataset: activeDataset
+    });
 
-    const reviewItem = getRuleEvidenceItem(attributes);
+    if (segmentPanel) return segmentPanel;
 
-    if (reviewItem?.isPrimaryAnomaly) {
-      return renderAnomalyPanel(model);
-    }
-
-    if (reviewItem) {
-      return renderRuleEvidenceSegmentPanel(reviewItem, {
-        thresholds: model.thresholds,
-        primaryAnomaly: model.anomalyEvidence
-      });
-    }
-
-    return segment
-      ? renderNormalSegmentPanel(segment, {
-          thresholds: model.thresholds,
-          primaryAnomaly: model.anomalyEvidence
-        })
-      : renderTrajectoryPanel(trajectoryMetadata);
+    // No matching segment in the model: fall back to the trajectory overview.
+    return hasReviewedAnalysis
+      ? renderTrajectoryPanel(trajectoryMetadata)
+      : renderUnreviewedDatasetPanel(activeDataset, model);
   },
   "anomaly-segment": () => renderAnomalyPanel(model),
   "direction-arrow": (attributes) => renderDirectionPanel(attributes)

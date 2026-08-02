@@ -24,6 +24,7 @@ import {
   renderGroupSelectionPanel,
   renderMapHelp,
   renderPanelToggle,
+  renderSegmentPanel,
   renderRuleEvidenceReview,
   renderRuleEvidenceSegmentPanel,
   renderNormalSegmentPanel
@@ -263,6 +264,54 @@ test("an empty drag box explains itself instead of rendering blank", () => {
   const html = renderGroupFor([]);
 
   assert.match(html, /No vessel points fell inside the drag box/);
+});
+
+// Regression: the panel choice used to be duplicated in main.js and panels.js,
+// and the copies drifted — group-selecting points 6-7 showed a short evidence
+// summary while clicking segment 6-7 showed the full detection panel.
+test("selecting the anomaly's endpoints gives the same panel as clicking it", () => {
+  const anomalySegment = model.segments.find(
+    (segment) => segment.fromOrder === 6 && segment.toOrder === 7
+  );
+
+  const clicked = renderSegmentPanel(anomalySegment, {
+    model,
+    dataset: syntheticPhase8Dataset
+  });
+  const grouped = renderGroupFor([6, 7]);
+
+  assert.match(clicked, /Threshold-Based Anomaly Detection Starter/);
+  assert.ok(
+    grouped.includes(clicked),
+    "the group panel must embed the clicked segment panel verbatim"
+  );
+});
+
+test("the anomaly group panel carries the baseline comparison and evidence review", () => {
+  const html = renderGroupFor([6, 7]);
+
+  assert.match(html, /Threshold-Based Anomaly Detection Starter/);
+  assert.match(html, /Computed evidence vs\. normal baseline/);
+  assert.match(html, /Rule Evidence Review/);
+  assert.match(html, /1 primary anomaly · 2 supporting evidence items/);
+  // The group frame still says what was actually selected.
+  assert.match(html, /2 points ·\s*1 segment/);
+  assert.match(html, /<strong>Points:<\/strong> 6–7/);
+});
+
+test("segment panel choice follows the segment's rule role", () => {
+  const panelFor = (fromOrder, toOrder) =>
+    renderSegmentPanel(
+      model.segments.find(
+        (segment) => segment.fromOrder === fromOrder && segment.toOrder === toOrder
+      ),
+      { model, dataset: syntheticPhase8Dataset }
+    );
+
+  assert.match(panelFor(6, 7), /Threshold-Based Anomaly Detection Starter/);
+  assert.match(panelFor(5, 6), /Supporting Rule Evidence/);
+  assert.match(panelFor(3, 4), /Normal Segment Context/);
+  assert.equal(renderSegmentPanel(null, { model }), null);
 });
 
 test("a two-point selection reuses the existing segment panel rather than aggregating", () => {
