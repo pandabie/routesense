@@ -270,9 +270,33 @@ body,
   border-left-color: rgba(230, 160, 40, 0.85);
 }
 
+/* A button, not an anchor: it changes the selection in place rather than
+   navigating. Styled as a link because that is what "drill into this row"
+   looks like to a reader. */
 .group-comparison-item__label {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #1f4f8f;
+  font: inherit;
   font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
+
+.group-comparison-item__label:hover {
+  color: #123a6b;
+}
+
+.group-comparison-item__label:focus-visible {
+  outline: 2px solid rgba(40, 110, 180, 0.7);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 
 .group-comparison-item__role {
   color: #52606d;

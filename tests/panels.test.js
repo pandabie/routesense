@@ -294,6 +294,33 @@ test("a points 5-8 selection states the rule-versus-narrative mismatch", () => {
   assert.match(html, /Primary anomaly 6 → 7: fully in selection/);
 });
 
+test("every segment row in a group panel is a button carrying its endpoints", () => {
+  const html = renderGroupFor([5, 6, 7, 8]);
+
+  // One row per interior segment, each drillable.
+  assert.equal((html.match(/data-select-segment/g) ?? []).length, 3);
+
+  [[5, 6], [6, 7], [7, 8]].forEach(([fromOrder, toOrder]) => {
+    assert.match(
+      html,
+      new RegExp(
+        `data-select-segment[\\s\\S]*?data-from-order="${fromOrder}"[\\s\\S]*?data-to-order="${toOrder}"`
+      )
+    );
+  });
+
+  // A button, not an anchor: drilling in changes the selection, it does not
+  // navigate anywhere.
+  assert.doesNotMatch(html, /<a\s/);
+  assert.match(html, /<button\s+type="button"\s+class="group-comparison-item__label"/);
+});
+
+test("a two-point selection has no segment rows to drill into", () => {
+  const html = renderGroupFor([3, 4]);
+
+  assert.doesNotMatch(html, /data-select-segment/);
+});
+
 test("a clipped anomaly is described as partial, never as absent", () => {
   const html = renderGroupFor([4, 5, 6]);
 

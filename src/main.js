@@ -468,6 +468,53 @@ function setPanelContent(html) {
   infoPanel.scrollTop = 0;
 }
 
+// The one path that turns a set of points into map highlights plus a panel.
+// Both entry points use it — the drag box, and the segment links inside a
+// group panel — so a selection made either way is indistinguishable.
+function applyPointSelection(selectedPoints) {
+  const summary = buildSelectionSummary(selectedPoints, model, {
+    primaryAnomaly: analysisOptions?.anomalySegment ?? null,
+    baselineRange: analysisOptions?.baselineRange ?? null
+  });
+
+  // Only interior segments are highlighted, matching what the panel counts.
+  // A boundary segment is explained in text but never drawn as selected.
+  setSelection({
+    pointOrders: selectedPoints.map((point) => point.order),
+    segmentKeys: summary.interiorSegments.map((segment) =>
+      getSegmentKey(segment.fromOrder, segment.toOrder)
+    )
+  });
+
+  setPanelContent(
+    renderGroupSelectionPanel(summary, {
+      model,
+      dataset: activeDataset,
+      anomalySegment: analysisOptions?.anomalySegment ?? null
+    })
+  );
+}
+
+// A segment row in a group panel drills into that one segment. Selecting its
+// two endpoints reuses the ordinary selection path rather than rendering a
+// special case, so the result is exactly a two-point group selection.
+panelContent.addEventListener("click", (event) => {
+  const link = event.target.closest("[data-select-segment]");
+
+  if (!link) return;
+
+  const fromOrder = Number(link.dataset.fromOrder);
+  const toOrder = Number(link.dataset.toOrder);
+
+  const endpoints = trajectoryPoints.filter(
+    (point) => point.order === fromOrder || point.order === toOrder
+  );
+
+  if (endpoints.length === 0) return;
+
+  applyPointSelection(endpoints);
+});
+
 setPanelContent(renderActiveDatasetPanel());
 
 // ============================================================
@@ -652,29 +699,7 @@ const drawSelectionBox = (extent) => {
 };
 
 const applySelection = (extent) => {
-  const selectedPoints = selectPointsInExtent(trajectoryPoints, extent);
-
-  const summary = buildSelectionSummary(selectedPoints, model, {
-    primaryAnomaly: analysisOptions?.anomalySegment ?? null,
-    baselineRange: analysisOptions?.baselineRange ?? null
-  });
-
-  // Only interior segments are highlighted, matching what the panel counts.
-  // A boundary segment is explained in text but never drawn as selected.
-  setSelection({
-    pointOrders: selectedPoints.map((point) => point.order),
-    segmentKeys: summary.interiorSegments.map((segment) =>
-      getSegmentKey(segment.fromOrder, segment.toOrder)
-    )
-  });
-
-  setPanelContent(
-    renderGroupSelectionPanel(summary, {
-      model,
-      dataset: activeDataset,
-      anomalySegment: analysisOptions?.anomalySegment ?? null
-    })
-  );
+  applyPointSelection(selectPointsInExtent(trajectoryPoints, extent));
 };
 
 view.on("drag", (event) => {

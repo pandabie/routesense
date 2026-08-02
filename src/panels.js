@@ -738,7 +738,13 @@ function renderRuleComparisonItems(items) {
               }"
               data-segment-key="${item.fromOrder}-${item.toOrder}"
             >
-              <span class="group-comparison-item__label">${item.label}</span>
+              <button
+                type="button"
+                class="group-comparison-item__label"
+                data-select-segment
+                data-from-order="${item.fromOrder}"
+                data-to-order="${item.toOrder}"
+              >${item.label}</button>
               <span class="group-comparison-item__role">${roleLabel}</span>
               <span class="group-comparison-item__trigger">${getRuleItemTriggerLabel(item)}</span>
             </li>
