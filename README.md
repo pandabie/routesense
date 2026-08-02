@@ -32,6 +32,8 @@ All three cross the threshold, but the rule does not decide which one should rec
 
 For this controlled fixture, Point 6 → Point 7 is configured as the primary anomaly. The other two stay visible as context.
 
+You can also see this gap in the interface itself by selecting all three segments at once. See *Rule vs. narrative* below.
+
 RouteSense keeps three things separate:
 
 1. **Detection status** — what the rule flags.
@@ -76,14 +78,47 @@ The surrounding track remains visible so the highlighted segment can still be re
 
 ### One panel, no ArcGIS popups
 
-ArcGIS popups are disabled. One side panel responds to trajectory segments, vessel points, and direction arrows.
+ArcGIS popups are disabled. One side panel responds to trajectory segments, vessel points, direction arrows, and group selections.
 
 Depending on the selection, it shows:
 
 - normal movement context,
 - supporting rule evidence,
-- the primary anomaly review, or
+- the primary anomaly review,
+- a summary of several segments at once, or
 - real AIS provenance and measurement information.
+
+The panel can be collapsed when you want to see more of the map. A small help box on the map lists what each gesture does.
+
+### Selecting a group of points
+
+Hold `Shift` and drag a box to select every vessel point inside it. Dragging without `Shift` still pans the map.
+
+A segment counts as selected only when **both** of its ends are inside the box. A segment with one end inside is listed as a boundary segment, so the panel says why it was left out instead of dropping it quietly.
+
+The panel changes shape with the size of the selection:
+
+| Selection | What the panel shows |
+|---|---|
+| 1 point | The normal point panel |
+| 2 points | The normal segment panel for the one segment between them |
+| 3 or more | Totals for the whole selection, then one row per segment |
+
+Selected points are drawn larger. Selected segments get a soft halo behind the track rather than a new line color, so the dashed red anomaly cue is never covered up.
+
+Each segment row is a link. Clicking it selects that segment's two end points, which gives the same result as drawing a small box around them.
+
+Numbers for a group are kept deliberately plain. Speed for the whole selection is total distance divided by total time, not an average of segment speeds. Heading change always says how many segments it could be measured for, because the first segment of a track has no previous segment to compare with.
+
+### Rule vs. narrative
+
+Selecting Points 5 to 8 covers all three flagged segments at once. The panel then says:
+
+> 3 of 3 segments flagged · 1 narrative anomaly
+
+Before this, the gap between what the rule flags and what the project treats as the anomaly was something you had to read about in this file. Now the interface says it directly. That is closer to what the project claims to be: the layer that explains a detection result, not the layer that produces one.
+
+The real AIS panel has no version of this block, because that dataset has no rule to compare against. It lists the same segments with their measured differences instead.
 
 ### Computed movement metrics
 
@@ -132,6 +167,7 @@ This prototype is intentionally small.
 - The timestamp basis and redistribution terms still require upstream verification.
 - The rule does not include vessel type, operational context, weather, environment, or uncertainty.
 - Each dataset contains one trajectory. Multi-vessel comparison is not implemented.
+- Group selection is built for track sizes this project does not have yet. With eight points, a reviewer can simply click the segments one at a time. It is there to show the interaction scales, not because the sample needs it.
 - No user study has been completed.
 
 A possible next step would be a small study comparing a color-only display with the full RouteSense treatment. The task could measure how accurately and quickly people identify the configured primary anomaly among several flagged segments.
@@ -145,7 +181,8 @@ Portfolio prototype version 1 is complete.
 - Public GitHub Pages demo deployed
 - Synthetic and real-data modes implemented
 - Dataset selection through the interface and URL
-- 78 regression tests passing
+- Group selection with the rule-versus-narrative comparison
+- 113 regression tests passing
 
 ---
 
@@ -176,11 +213,12 @@ src/
 ├── datasets.js            # Dataset adapters, registry, and selection
 ├── geo.js                 # Geometry, time, and statistics helpers
 ├── measurement-review.js  # Reported and computed measurement comparison
-├── main.js                # ArcGIS setup and click routing
+├── main.js                # ArcGIS setup, click and drag routing
 ├── panels.js              # Panel renderers
-└── real-ais-sample.js     # Static AIS records and provenance
+├── real-ais-sample.js     # Static AIS records and provenance
+└── selection.js           # Group selection logic and its summaries
 
-tests/                     # 78 tests across 6 suites
+tests/                     # 113 tests across 7 suites
 ```
 
 ## Run locally
