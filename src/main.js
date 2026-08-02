@@ -27,6 +27,7 @@ import {
   UI_LAYOUT,
   DATASET_SELECTION,
   ENCODING,
+  GROUP_SELECTION,
   toCssColor
 } from "./config.js";
 import { getArrowAngle, getMidpoint } from "./geo.js";
@@ -40,11 +41,20 @@ import {
 } from "./datasets.js";
 import {
   buildTrajectoryDisplayModel,
-  buildTrajectoryModel
+  buildTrajectoryModel,
+  getSegmentKey
 } from "./analysis.js";
 import {
+  buildSelectionSummary,
+  selectPointsInExtent
+} from "./selection.js";
+import {
+  PANEL_CONTENT_ID,
   renderDatasetSwitcher,
   renderDefaultPanel,
+  renderGroupSelectionPanel,
+  renderMapHelp,
+  renderPanelToggle,
   renderPointPanel,
   renderTrajectoryPanel,
   renderAnomalyPanel,
@@ -89,6 +99,12 @@ const model = hasReviewedAnalysis
       measurementReviewProfile: activeDataset.measurementReviewProfile
     });
 const activeMapConfig = activeDataset.mapView ?? MAP_CONFIG;
+
+// Resolved once at boot, like the dataset itself. The map help text and the
+// drag handler both read it, so it lives with the other boot-time decisions.
+const groupSelectionEnabled =
+  new URLSearchParams(window.location.search).get(GROUP_SELECTION.queryParam) ===
+  GROUP_SELECTION.enabledValue;
 
 // ============================================================
 // MAP SETUP
@@ -220,12 +236,63 @@ model.segments.forEach((segment) => {
   );
 });
 
-// --- Vessel points (re-rendered when selection changes) ---
-let selectedPointOrder = null;
+// --- Selection state ---
+// Points and segments share one selection model so a click and a drag box are
+// the same thing at different sizes: a click just produces a set of one.
+const selectedPointOrders = new Set();
+const selectedSegmentKeys = new Set();
 const vesselPointGraphics = [];
+const segmentHighlightGraphics = [];
+
+function setSelection({ pointOrders = [], segmentKeys = [] } = {}) {
+  selectedPointOrders.clear();
+  pointOrders.forEach((order) => selectedPointOrders.add(order));
+
+  selectedSegmentKeys.clear();
+  segmentKeys.forEach((key) => selectedSegmentKeys.add(key));
+
+  renderSegmentHighlights();
+  renderPointGraphics();
+}
+
+// A halo behind the route, not a restyled route. Inserting at index 0 keeps it
+// below every other graphic, so selecting the anomaly segment still shows its
+// dashed red cue on top rather than replacing it with a selection colour.
+function renderSegmentHighlights() {
+  segmentHighlightGraphics.forEach((g) => view.graphics.remove(g));
+  segmentHighlightGraphics.length = 0;
+
+  model.segments
+    .filter((segment) =>
+      selectedSegmentKeys.has(getSegmentKey(segment.fromOrder, segment.toOrder))
+    )
+    .forEach((segment) => {
+      // No attributes: the click dispatcher filters on graphicType, so the
+      // halo can never intercept a hit meant for the segment it sits under.
+      const graphic = new Graphic({
+        geometry: {
+          type: "polyline",
+          paths: [[
+            [segment.start.longitude, segment.start.latitude],
+            [segment.end.longitude, segment.end.latitude]
+          ]]
+        },
+        symbol: {
+          type: "simple-line",
+          color: ENCODING.selectedSegment.color,
+          width: ENCODING.selectedSegment.width
+        }
+      });
+
+      view.graphics.add(graphic, 0);
+      segmentHighlightGraphics.push(graphic);
+    });
+}
 
 function createPointGraphic(point) {
-  const style = point.order === selectedPointOrder ? ENCODING.selectedPoint : ENCODING.point;
+  const style = selectedPointOrders.has(point.order)
+    ? ENCODING.selectedPoint
+    : ENCODING.point;
 
   return new Graphic({
     geometry: { type: "point", longitude: point.longitude, latitude: point.latitude },
@@ -304,8 +371,60 @@ panelHeader.className = "info-panel__header";
 
 const panelContent = document.createElement("div");
 panelContent.className = "info-panel__content";
+panelContent.id = PANEL_CONTENT_ID;
 
-infoPanel.append(panelHeader, panelContent);
+// A toolbar above the header holds the collapse control, so collapsing hides
+// only the interaction output. The dataset switcher stays reachable because
+// switching datasets is how you change what the map is showing at all.
+const panelToolbar = document.createElement("div");
+panelToolbar.className = "info-panel__toolbar";
+
+infoPanel.append(panelToolbar, panelHeader, panelContent);
+
+let isPanelExpanded = true;
+
+function renderPanelToolbar() {
+  panelToolbar.innerHTML = renderPanelToggle(isPanelExpanded);
+  infoPanel.classList.toggle("info-panel--collapsed", !isPanelExpanded);
+}
+
+panelToolbar.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-panel-toggle]")) return;
+
+  isPanelExpanded = !isPanelExpanded;
+  renderPanelToolbar();
+});
+
+renderPanelToolbar();
+
+// --- Map help ---
+// It describes gestures performed on the map, so it belongs to the map rather
+// than the panel and must stay readable while the panel is collapsed.
+//
+// Handed to view.ui instead of positioned by hand: ArcGIS stacks it under the
+// zoom control it shares the corner with, so the two can never overlap and no
+// magic offset has to be kept in sync with the widget's height.
+const mapHelp = document.createElement("div");
+mapHelp.className = "map-help";
+view.ui.add(mapHelp, "top-left");
+
+let isMapHelpExpanded = true;
+
+function renderMapHelpBox() {
+  mapHelp.innerHTML = renderMapHelp({
+    groupSelectionEnabled,
+    isExpanded: isMapHelpExpanded
+  });
+}
+
+mapHelp.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-help-toggle]")) return;
+
+  isMapHelpExpanded = !isMapHelpExpanded;
+  renderMapHelpBox();
+});
+
+renderMapHelpBox();
 
 panelHeader.innerHTML = renderDatasetSwitcher(
   buildDatasetSwitcherOptions(DATASET_REGISTRY, activeDataset.id),
@@ -343,7 +462,22 @@ function renderActiveDatasetPanel() {
     : renderUnreviewedDatasetPanel(activeDataset, model);
 }
 
-panelContent.innerHTML = renderActiveDatasetPanel();
+// The panel is the scroll container, so every content swap returns to the top;
+// otherwise a new selection can render below the current scroll position.
+// A collapsed panel re-expands here: the panel is the entire result of a map
+// interaction, so leaving it shut would make a click look like it did nothing.
+function setPanelContent(html) {
+  panelContent.innerHTML = html;
+
+  if (!isPanelExpanded) {
+    isPanelExpanded = true;
+    renderPanelToolbar();
+  }
+
+  infoPanel.scrollTop = 0;
+}
+
+setPanelContent(renderActiveDatasetPanel());
 
 // ============================================================
 // CLICK INTERACTION
@@ -425,34 +559,171 @@ view.on("click", (event) => {
 
     // Clicked empty space: clear selection and reset.
     if (!hit) {
-      selectedPointOrder = null;
-      renderPointGraphics();
-      panelContent.innerHTML = renderActiveDatasetPanel();
+      setSelection();
+      setPanelContent(renderActiveDatasetPanel());
       return;
     }
 
     const attributes = hit.graphic.attributes;
 
-    // Vessel points are the only selectable graphic.
     if (attributes.graphicType === "vessel-point") {
-      selectedPointOrder = attributes.order;
-      renderPointGraphics();
+      setSelection({ pointOrders: [attributes.order] });
       const selectedPoint = trajectoryPoints.find(
         (point) => point.order === attributes.order
       ) ?? attributes;
 
-      panelContent.innerHTML = hasReviewedAnalysis
-        ? renderPointPanel(selectedPoint, analysisOptions.anomalySegment)
-        : renderUnreviewedPointPanel(selectedPoint, activeDataset);
+      setPanelContent(
+        hasReviewedAnalysis
+          ? renderPointPanel(selectedPoint, analysisOptions.anomalySegment)
+          : renderUnreviewedPointPanel(selectedPoint, activeDataset)
+      );
       return;
     }
 
-    // Any other graphic clears the point selection first.
-    selectedPointOrder = null;
-    renderPointGraphics();
+    // Segments carry their endpoint orders under different attribute names
+    // depending on which graphic was hit; both resolve to the same segment key.
+    const clickedSegmentKey =
+      attributes.graphicType === "trajectory-segment"
+        ? getSegmentKey(attributes.fromOrder, attributes.toOrder)
+        : attributes.graphicType === "anomaly-segment"
+          ? getSegmentKey(attributes.startOrder, attributes.endOrder)
+          : null;
+
+    setSelection({ segmentKeys: clickedSegmentKey ? [clickedSegmentKey] : [] });
+
     const renderPanel = panelByGraphicType[attributes.graphicType];
-    panelContent.innerHTML = renderPanel
-      ? renderPanel(attributes)
-      : renderActiveDatasetPanel();
+    setPanelContent(
+      renderPanel ? renderPanel(attributes) : renderActiveDatasetPanel()
+    );
   });
 });
+
+// ============================================================
+// GROUP SELECTION (opt-in experiment: ?select=group)
+//
+// Shift-drag draws a box and selects every vessel point inside it. Without the
+// query flag none of this is registered, so the v1 interaction is untouched.
+// ============================================================
+
+if (groupSelectionEnabled) {
+  // Shift is read once at drag start: releasing the key mid-drag must not turn
+  // a box selection back into a map pan.
+  let activeDrag = null;
+  let selectionBoxGraphic = null;
+
+  const clearSelectionBox = () => {
+    if (selectionBoxGraphic) {
+      view.graphics.remove(selectionBoxGraphic);
+      selectionBoxGraphic = null;
+    }
+  };
+
+  // Screen corners -> geographic box. `toMap` returns a point in the view's
+  // spatial reference; `longitude`/`latitude` convert from Web Mercator.
+  const toGeographicExtent = (origin, current) => {
+    const start = view.toMap({ x: origin.x, y: origin.y });
+    const end = view.toMap({ x: current.x, y: current.y });
+
+    if (!start || !end) return null;
+
+    return {
+      xmin: Math.min(start.longitude, end.longitude),
+      ymin: Math.min(start.latitude, end.latitude),
+      xmax: Math.max(start.longitude, end.longitude),
+      ymax: Math.max(start.latitude, end.latitude)
+    };
+  };
+
+  const drawSelectionBox = (extent) => {
+    clearSelectionBox();
+
+    selectionBoxGraphic = new Graphic({
+      geometry: {
+        type: "polygon",
+        rings: [[
+          [extent.xmin, extent.ymin],
+          [extent.xmin, extent.ymax],
+          [extent.xmax, extent.ymax],
+          [extent.xmax, extent.ymin],
+          [extent.xmin, extent.ymin]
+        ]]
+      },
+      symbol: {
+        type: "simple-fill",
+        color: ENCODING.selectionBox.fillColor,
+        outline: {
+          color: ENCODING.selectionBox.outlineColor,
+          width: ENCODING.selectionBox.outlineWidth,
+          style: ENCODING.selectionBox.outlineStyle
+        }
+      }
+    });
+
+    view.graphics.add(selectionBoxGraphic);
+  };
+
+  const applySelection = (extent) => {
+    const selectedPoints = selectPointsInExtent(trajectoryPoints, extent);
+
+    const summary = buildSelectionSummary(selectedPoints, model, {
+      primaryAnomaly: analysisOptions?.anomalySegment ?? null,
+      baselineRange: analysisOptions?.baselineRange ?? null
+    });
+
+    // Only interior segments are highlighted, matching what the panel counts.
+    // A boundary segment is explained in text but never drawn as selected.
+    setSelection({
+      pointOrders: selectedPoints.map((point) => point.order),
+      segmentKeys: summary.interiorSegments.map((segment) =>
+        getSegmentKey(segment.fromOrder, segment.toOrder)
+      )
+    });
+
+    setPanelContent(
+      renderGroupSelectionPanel(summary, {
+        model,
+        dataset: activeDataset,
+        anomalySegment: analysisOptions?.anomalySegment ?? null
+      })
+    );
+  };
+
+  view.on("drag", (event) => {
+    if (event.action === "start") {
+      activeDrag = event.native?.shiftKey
+        ? { x: event.origin.x, y: event.origin.y }
+        : null;
+    }
+
+    // Not a shift-drag: let the view handle it as a normal pan.
+    if (!activeDrag) return;
+
+    // Suppressing propagation on every phase also disables the default
+    // shift-drag zoom-box behaviour for the duration of the gesture.
+    event.stopPropagation();
+
+    const extent = toGeographicExtent(activeDrag, event);
+
+    if (event.action === "update") {
+      if (extent) drawSelectionBox(extent);
+      return;
+    }
+
+    if (event.action === "end") {
+      clearSelectionBox();
+
+      const dragDistance = Math.hypot(
+        event.x - activeDrag.x,
+        event.y - activeDrag.y
+      );
+
+      // Too small to be a deliberate box: leave the existing selection alone
+      // and let the click handler deal with it.
+      if (dragDistance >= GROUP_SELECTION.minimumDragPixels && extent) {
+        applySelection(extent);
+      }
+
+      activeDrag = null;
+    }
+  });
+}

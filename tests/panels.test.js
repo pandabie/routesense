@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildTrajectoryModel } from "../src/analysis.js";
+import {
+  buildTrajectoryDisplayModel,
+  buildTrajectoryModel
+} from "../src/analysis.js";
 import { samplePoints } from "../src/data.js";
 import {
   ANOMALY_SEGMENT,
@@ -9,8 +12,18 @@ import {
   THRESHOLD_RULE
 } from "../src/config.js";
 import {
+  gothenburgRealAisDataset,
+  syntheticPhase8Dataset
+} from "../src/datasets.js";
+import { buildSelectionSummary } from "../src/selection.js";
+import {
+  MAP_HELP_BODY_ID,
+  PANEL_CONTENT_ID,
   renderAnomalyPanel,
   renderDatasetSwitcher,
+  renderGroupSelectionPanel,
+  renderMapHelp,
+  renderPanelToggle,
   renderRuleEvidenceReview,
   renderRuleEvidenceSegmentPanel,
   renderNormalSegmentPanel
@@ -185,4 +198,164 @@ test("dataset switcher marks the active dataset and renders every option with it
 test("dataset switcher renders nothing without options", () => {
   assert.equal(renderDatasetSwitcher([]), "");
   assert.equal(renderDatasetSwitcher(undefined), "");
+});
+
+// --- Map help and panel collapse -------------------------------------------
+
+test("map help advertises shift-drag only when group selection is switched on", () => {
+  const withGroup = renderMapHelp({ groupSelectionEnabled: true });
+  const withoutGroup = renderMapHelp({ groupSelectionEnabled: false });
+
+  assert.match(withGroup, /<kbd>Shift<\/kbd> \+ drag/);
+  assert.match(withGroup, /Select a stretch of the trajectory/);
+  assert.doesNotMatch(withoutGroup, /Shift/);
+  assert.doesNotMatch(withoutGroup, /Select a stretch of the trajectory/);
+
+  // Interactions that exist in both builds stay listed either way.
+  [withGroup, withoutGroup].forEach((html) => {
+    assert.match(html, /Click a point/);
+    assert.match(html, /Click a segment/);
+    assert.match(html, /Click empty water/);
+  });
+});
+
+test("collapsed map help keeps its toggle and drops the instruction body", () => {
+  const collapsed = renderMapHelp({ groupSelectionEnabled: true, isExpanded: false });
+
+  assert.match(collapsed, /How to use this map/);
+  assert.match(collapsed, /aria-expanded="false"/);
+  assert.doesNotMatch(collapsed, new RegExp(`id="${MAP_HELP_BODY_ID}"`));
+  assert.doesNotMatch(collapsed, /Click a point/);
+});
+
+test("map help starts expanded because shift-drag is otherwise undiscoverable", () => {
+  const html = renderMapHelp({ groupSelectionEnabled: true });
+
+  assert.match(html, /aria-expanded="true"/);
+  assert.match(html, new RegExp(`id="${MAP_HELP_BODY_ID}"`));
+});
+
+test("panel toggle states its action and points at the region it controls", () => {
+  const expanded = renderPanelToggle(true);
+  const collapsed = renderPanelToggle(false);
+
+  assert.match(expanded, /Collapse/);
+  assert.match(expanded, /aria-expanded="true"/);
+  assert.match(collapsed, /Expand for more/);
+  assert.match(collapsed, /aria-expanded="false"/);
+
+  [expanded, collapsed].forEach((html) => {
+    assert.match(html, new RegExp(`aria-controls="${PANEL_CONTENT_ID}"`));
+    assert.match(html, /data-panel-toggle/);
+  });
+});
+
+// --- Group selection (drag-box experiment) ---------------------------------
+
+const groupSummaryFor = (orders) =>
+  buildSelectionSummary(
+    samplePoints.filter((point) => orders.includes(point.order)),
+    model,
+    { primaryAnomaly: ANOMALY_SEGMENT, baselineRange: NORMAL_BASELINE_RANGE }
+  );
+
+const renderGroupFor = (orders) =>
+  renderGroupSelectionPanel(groupSummaryFor(orders), {
+    model,
+    dataset: syntheticPhase8Dataset,
+    anomalySegment: ANOMALY_SEGMENT
+  });
+
+test("an empty drag box explains itself instead of rendering blank", () => {
+  const html = renderGroupFor([]);
+
+  assert.match(html, /No vessel points fell inside the drag box/);
+});
+
+test("a two-point selection reuses the existing segment panel rather than aggregating", () => {
+  const html = renderGroupFor([3, 4]);
+
+  assert.match(html, /Group Selection/);
+  assert.match(html, /2 points ·\s*1 segment/);
+  assert.match(html, /Normal Segment Context/);
+  assert.match(html, /Vessel Point 3 → Vessel Point 4/);
+  // A single segment has no meaningful spread to report.
+  assert.doesNotMatch(html, /Per-segment speed range/);
+});
+
+test("a two-point selection names the excluded boundary segments", () => {
+  const html = renderGroupFor([3, 4]);
+
+  assert.match(html, /Boundary segments \(excluded\):<\/strong> 2 → 3, 4 → 5/);
+  assert.match(html, /included only when both of its endpoints are selected/);
+});
+
+test("a points 5-8 selection states the rule-versus-narrative mismatch", () => {
+  const html = renderGroupFor([5, 6, 7, 8]);
+
+  assert.match(html, /Rule vs\. narrative/);
+  assert.match(html, /3 of 3 segments flagged/);
+  assert.match(html, /1 narrative anomaly/);
+  assert.match(html, /flags more segments than the RouteSense narrative/);
+  assert.match(html, /documented finding of the[\s\S]*project, not a defect/);
+  assert.match(html, /Primary anomaly 6 → 7: fully in selection/);
+});
+
+test("a clipped anomaly is described as partial, never as absent", () => {
+  const html = renderGroupFor([4, 5, 6]);
+
+  assert.match(html, /Primary anomaly 6 → 7: partially in selection \(Point 6 only\)/);
+  assert.doesNotMatch(html, /Primary anomaly 6 → 7: not in selection/);
+});
+
+test("aggregate movement reports heading coverage and the weighting formula", () => {
+  const html = renderGroupFor([1, 2, 3]);
+
+  assert.match(html, /Overall estimated speed:/);
+  assert.match(html, /total distance ÷ total covered time/);
+  assert.match(html, /Heading change: available for 1 of 2 segments/);
+  assert.match(html, /measured against the preceding segment, which may lie[\s\S]*outside this selection/);
+});
+
+test("selecting the whole baseline range says so instead of presenting a new average", () => {
+  const html = renderGroupFor([1, 2, 3, 4, 5]);
+
+  assert.match(html, /Baseline range 1–5: fully covered by this selection/);
+  assert.match(html, /these aggregates describe the baseline itself/);
+});
+
+test("a non-contiguous selection reports runs and withholds segment aggregates", () => {
+  const html = renderGroupFor([2, 7]);
+
+  assert.match(html, /2 runs, non-contiguous/);
+  assert.match(html, /<strong>Points:<\/strong> 2, 7/);
+  assert.match(html, /not consecutive, so no complete segment lies[\s\S]*inside the selection/);
+  assert.doesNotMatch(html, /Rule vs\. narrative/);
+});
+
+test("the real AIS group panel stays descriptive and carries no detection language", () => {
+  const displayModel = buildTrajectoryDisplayModel(
+    gothenburgRealAisDataset.points,
+    { measurementReviewProfile: gothenburgRealAisDataset.measurementReviewProfile }
+  );
+
+  const summary = buildSelectionSummary(
+    gothenburgRealAisDataset.points.slice(0, 4),
+    displayModel,
+    { primaryAnomaly: null, baselineRange: null }
+  );
+
+  const html = renderGroupSelectionPanel(summary, {
+    model: displayModel,
+    dataset: gothenburgRealAisDataset
+  });
+
+  assert.match(html, /Descriptive measurement comparison/);
+  assert.match(html, /Speed difference \(computed − reported\)/);
+  assert.match(html, /not[\s\S]*error scores, validation results, or anomaly labels/);
+  assert.doesNotMatch(html, /flagged/i);
+  assert.doesNotMatch(html, /threshold rule is attached[\s\S]*?Triggered/i);
+  assert.doesNotMatch(html, /Rule vs\. narrative/);
+  assert.doesNotMatch(html, /Primary anomaly/);
+  assert.doesNotMatch(html, /Baseline range/);
 });
