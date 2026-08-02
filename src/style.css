@@ -79,13 +79,11 @@ body,
   color: #52606d;
 }
 
-/* Map help sits in the map container, opposite the info panel. */
+/* Placement is owned by view.ui ("top-left"), which stacks this under the zoom
+   control. Only the box's own appearance is styled here. */
 .map-help {
-  position: absolute;
-  top: var(--rs-panel-inset, 16px);
-  left: var(--rs-panel-inset, 16px);
-  z-index: 20;
-  max-width: min(300px, calc(100vw - var(--rs-panel-total-inset, 32px)));
+  width: 300px;
+  max-width: calc(100vw - 32px);
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.92);
   color: #1f2933;
@@ -95,15 +93,6 @@ body,
   font-size: 13px;
   line-height: 1.45;
   box-sizing: border-box;
-}
-
-/* Below the desktop breakpoint the info panel spans nearly the full width from
-   the top, so the help moves to the bottom edge instead of underneath it. */
-@media (max-width: 899px) {
-  .map-help {
-    top: auto;
-    bottom: var(--rs-panel-inset, 16px);
-  }
 }
 
 .map-help__toggle {

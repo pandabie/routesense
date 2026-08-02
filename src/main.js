@@ -398,16 +398,15 @@ panelToolbar.addEventListener("click", (event) => {
 renderPanelToolbar();
 
 // --- Map help ---
-// Placed in the map container rather than the panel: it describes gestures
-// performed on the map, and it has to stay readable while the panel is collapsed.
+// It describes gestures performed on the map, so it belongs to the map rather
+// than the panel and must stay readable while the panel is collapsed.
+//
+// Handed to view.ui instead of positioned by hand: ArcGIS stacks it under the
+// zoom control it shares the corner with, so the two can never overlap and no
+// magic offset has to be kept in sync with the widget's height.
 const mapHelp = document.createElement("div");
 mapHelp.className = "map-help";
-mapHelp.style.setProperty("--rs-panel-inset", `${UI_LAYOUT.panelInset}px`);
-mapHelp.style.setProperty(
-  "--rs-panel-total-inset",
-  `${UI_LAYOUT.panelInset * 2}px`
-);
-viewContainer.append(mapHelp);
+view.ui.add(mapHelp, "top-left");
 
 let isMapHelpExpanded = true;
 
